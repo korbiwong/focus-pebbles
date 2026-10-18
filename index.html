@@ -274,6 +274,16 @@ details.inner>summary{cursor:pointer}
 #climb{height:440px;margin-top:14px}
 #climb:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .climb-note{margin:6px 0 18px}
+.where{border:1.5px solid var(--red);background:var(--red-soft);padding:12px;display:grid;gap:10px;text-align:left}
+.where .chips{gap:8px}
+.where button.chip,.dis-edit .chip{font-size:.95rem;padding:7px 14px;background:var(--sheet);color:var(--ink);border-color:var(--ink-2);cursor:pointer}
+.where button.chip:hover{border-color:var(--ink)}
+.dis{display:grid;gap:8px}
+.drow{display:grid;grid-template-columns:minmax(0,9em) minmax(0,1fr) auto;gap:12px;align-items:center}
+.drow b{overflow-wrap:anywhere}
+.drow .xpbar{margin:0;height:12px}
+.drow .xpbar i{background:var(--red)}
+#disSec.editing .dis-edit{display:block}
 .mods{display:grid;gap:10px}
 .mod{border:1px solid var(--rule);background:var(--sheet);padding:12px 14px;display:grid;gap:8px}
 .mod.met{border-color:var(--good);background:var(--good-soft)}
@@ -416,6 +426,27 @@ details.inner>summary{cursor:pointer}
     <div class="note" style="margin-top:12px">Revise in as many sessions as you like. Each module's time adds up over the week, and the week resets every Monday. You can change a goal any time; the new goal counts for this week.</div>
   </section>
 
+  <section class="sheet sec" id="disSec">
+    <div class="sec-head"><h2>Distractions</h2>
+      <div class="monthnav"><span class="lbl" id="disWeek">This week, during focus</span><button class="btn ghost sm" id="editDis" aria-pressed="false">Edit app list</button></div>
+    </div>
+    <div class="stats">
+      <div class="stat"><span class="lbl">Time away</span><b class="mono" id="dsTotal">0m</b></div>
+      <div class="stat"><span class="lbl">Times you left</span><b class="mono" id="dsCount">0</b></div>
+      <div class="stat"><span class="lbl">Top distraction</span><b class="mono" id="dsTop" style="font-size:1.35rem">—</b></div>
+      <div class="stat"><span class="lbl">Last week</span><b class="mono" id="dsLast">—</b></div>
+    </div>
+    <div class="dis" id="disList"></div>
+    <div class="edit-only dis-edit">
+      <div class="chips" id="disApps"></div>
+      <form class="addrow" id="disAdd" autocomplete="off" style="margin:10px 0 0">
+        <input id="disNew" maxlength="24" placeholder="Add an app, e.g. Netflix" aria-label="App name">
+        <button class="btn sm" type="submit">Add</button>
+      </form>
+    </div>
+    <div class="note" style="margin-top:10px">When you leave a focus session, the app asks where you went when you come back. Tap the app and it's counted here.</div>
+  </section>
+
   <section class="sheet sec" id="group" hidden>
     <div class="sec-head"><h2>Focus group</h2><div class="lbl">Live</div></div>
     <div class="stats">
@@ -472,6 +503,10 @@ details.inner>summary{cursor:pointer}
     <div class="timer" id="fTime">25:00</div>
     <div class="xpbar"><i id="fBar"></i></div>
     <div class="verdict" id="nudge" hidden></div>
+    <div class="where" id="where" hidden>
+      <b>Where did you go?</b>
+      <div class="chips" id="whereApps"></div>
+    </div>
     <div class="note" id="rule">Stay on this page. No YouTube.</div>
     <div class="lbl" id="fGroup"></div>
     <div class="chips" id="mins"></div>
@@ -576,6 +611,8 @@ function fill(){
     stats.rewardsList=[{id:"r4",at:4,text:r.small||"",claimedAt:r.smallAt||0},{id:"r8",at:8,text:r.big||"",claimedAt:r.bigAt||0}]}
   if(!Array.isArray(stats.modules))stats.modules=DEFAULT_MODS.map(m=>({...m}));
   stats.rev=stats.rev||{};
+  stats.distract=stats.distract||{apps:["YouTube","Instagram","TikTok","WhatsApp","Messages","Other"],log:[]};
+  stats.distract.apps=stats.distract.apps||[];stats.distract.log=stats.distract.log||[];
 }
 fill();
 function loadLocal(){try{return tidy(JSON.parse(localStorage.getItem("pebbles")||"[]"))}catch(e){return[]}}
@@ -696,7 +733,7 @@ function renderStats(){
   if(fresh)setTimeout(save,0);
   const count=earnedCount();
   $("badgeMeta").textContent=count+" of "+stats.badges.length+" earned";
-  renderBadges();renderRewards(count);climbSetup(count);renderRevision();
+  renderBadges();renderRewards(count);climbSetup(count);renderRevision();renderDistract();
   if(lastCount!==null&&count>lastCount){
     const hit=rewardsSorted().find(r=>r.at===count&&!r.claimedAt);
     if(hit)setTimeout(()=>{stamp("Reward unlocked",hit.text||"Choose it below","gold",3000);chime([523,659,784,1047,1319])},900);
@@ -1144,7 +1181,7 @@ function drawTime(){
   document.querySelectorAll(".minbtn").forEach(b=>b.classList.toggle("on",+b.dataset.m*60===total));
 }
 function openFocus(t){
-  ft=t;stop();left=total;$("nudge").hidden=true;
+  flushAway();ft=t;stop();left=total;$("nudge").hidden=true;
   $("fText").textContent=t.text;$("fTag").textContent=t.mod?"Revision · counts toward this week's goal":tag(t);$("fTag").style.color=`var(${t.color})`;
   $("rule").textContent=myDoc?"Stay on this page. If you leave, your group will see.":"Stay on this page. No YouTube.";
   $("focus").hidden=false;drawTime();
@@ -1172,8 +1209,8 @@ function stop(){
   clearInterval(timer);timer=0;$("fPlay").textContent="Start";try{wake?.release()}catch(e){}wake=null;
 }
 $("fPlay").onclick=()=>timer?stop():start();
-$("fBack").onclick=()=>{stop();$("focus").hidden=true};
-$("fDone").onclick=()=>{stop();$("focus").hidden=true;if(ft&&!ft.mod&&!ft.done)toggle(ft)};
+$("fBack").onclick=()=>{stop();flushAway();$("focus").hidden=true};
+$("fDone").onclick=()=>{stop();flushAway();$("focus").hidden=true;if(ft&&!ft.mod&&!ft.done)toggle(ft)};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("focus").hidden)$("fBack").click()});
 
 /* leaving the page while the timer runs → your group sees it, and you get a nudge when you come back */
@@ -1188,11 +1225,54 @@ document.addEventListener("visibilitychange",()=>{
   if(sec>=3){
     patch.awaySec=(patch.awaySec??mine.awaySec??0)+sec;patch.lastAway={sec:Math.round(sec),at:now};
     $("nudge").textContent=`You left for ${nice(sec)}. That time does not count. Back to your task.`;
-    $("nudge").hidden=false;chime([440,330]);speak("Back to your task");
+    $("nudge").hidden=false;chime([440,330]);speak("Back to your task");askWhere(sec,now);
   }
   writeMe(patch);
   left=Math.max(0,Math.round((endAt-now)/1000));drawTime();
 });
+
+/* ---------- distractions: you say where you went when you come back to a focus session ---------- */
+let pendingAway=null, editDis=false;
+function askWhere(sec,now){
+  pendingAway=pendingAway?{...pendingAway,sec:pendingAway.sec+sec}:{sec,at:now,task:ft?.text||""};
+  const box=$("whereApps");box.innerHTML="";
+  [...stats.distract.apps,"Stayed on task"].forEach(a=>box.append(btn("chip",a,()=>logAway(a))));
+  $("where").hidden=false;
+}
+function logAway(app){
+  if(!pendingAway)return;
+  $("where").hidden=true;
+  if(app!=="Stayed on task"){
+    stats.distract.log.push({app,sec:Math.round(pendingAway.sec),at:pendingAway.at,task:pendingAway.task});
+    const cut=Date.now()-120*864e5;stats.distract.log=stats.distract.log.filter(l=>l.at>=cut);
+    save();
+  }
+  pendingAway=null;
+}
+function flushAway(){if(pendingAway)logAway("Didn't say");$("where").hidden=true}
+function renderDistract(){
+  const mon=fromKey(wkKey()).getTime(),lastMon=mon-7*864e5,log=stats.distract.log;
+  const wk=log.filter(l=>l.at>=mon),lw=log.filter(l=>l.at>=lastMon&&l.at<mon);
+  const by={};wk.forEach(l=>{const b=by[l.app]||(by[l.app]={sec:0,n:0});b.sec+=l.sec;b.n++});
+  const rows=Object.entries(by).sort((a,b)=>b[1].sec-a[1].sec),tot=wk.reduce((s,l)=>s+l.sec,0);
+  $("dsTotal").textContent=fmtMin(tot);$("dsCount").textContent=wk.length;
+  $("dsTop").textContent=rows[0]?rows[0][0]:"—";
+  $("dsLast").textContent=lw.length?fmtMin(lw.reduce((s,l)=>s+l.sec,0)):"—";
+  const list=$("disList");list.innerHTML="";
+  if(!rows.length){const e=document.createElement("div");e.className="empty";e.textContent="Nothing yet this week. Leave a focus session and say where you went, and it shows up here.";list.append(e)}
+  const max=rows[0]?.[1].sec||1;
+  rows.forEach(([app,b])=>{
+    const r=document.createElement("div");r.className="drow";
+    const n=document.createElement("b");n.textContent=app;
+    const bar=document.createElement("div");bar.className="xpbar";bar.innerHTML=`<i style="width:${b.sec/max*100}%"></i>`;
+    const t=document.createElement("span");t.className="mono";t.textContent=`${b.sec<60?Math.round(b.sec)+" sec":fmtMin(b.sec)} · ${b.n}×`;
+    r.append(n,bar,t);list.append(r);
+  });
+  const chips=$("disApps");if(typingIn($("disSec")))return;chips.innerHTML="";
+  stats.distract.apps.forEach(a=>chips.append(btn("chip",a+"  ✕",()=>{stats.distract.apps=stats.distract.apps.filter(x=>x!==a);save()},"Remove "+a)));
+}
+$("editDis").onclick=()=>{editDis=!editDis;$("disSec").classList.toggle("editing",editDis);$("editDis").textContent=editDis?"Done editing":"Edit app list";$("editDis").setAttribute("aria-pressed",editDis)};
+$("disAdd").onsubmit=e=>{e.preventDefault();const v=$("disNew").value.trim();if(v&&!stats.distract.apps.includes(v)){stats.distract.apps.push(v);save()}$("disNew").value=""};
 
 /* ---------- backup: move your data between devices ---------- */
 $("exportBtn").onclick=()=>{
