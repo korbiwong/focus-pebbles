@@ -1,7 +1,7 @@
 // Focus Pebbles offline support: keep the app files on the device so it opens without internet.
 // Bump VERSION whenever index.html changes, so devices pick up the new copy.
-const VERSION = "fp-v1";
-const APP = ["./", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png"];
+const VERSION = "fp-v2";
+const APP = ["./", "index.html", "manifest.webmanifest", "firebase-config.js","icons/icon.svg", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(APP)).then(() => self.skipWaiting()));
@@ -26,8 +26,17 @@ self.addEventListener("fetch", e => {
     return;
   }
 
-  // App files and Google Fonts: use the saved copy, and save anything new.
-  if (url.origin === location.origin || url.hostname.endsWith("fonts.googleapis.com") || url.hostname.endsWith("fonts.gstatic.com")) {
+  // Your sign-in setup: fetch fresh when online so a new config takes effect, saved copy when offline.
+  if (url.origin === location.origin && url.pathname.endsWith("/firebase-config.js")) {
+    e.respondWith(fetch(req).then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); return res; })
+      .catch(() => caches.match(req)));
+    return;
+  }
+
+  // App files, Google Fonts and the Firebase library: use the saved copy, and save anything new.
+  // (Firebase sign-in and sync requests are not cached; they always go to the network.)
+  if (url.origin === location.origin || url.hostname.endsWith("fonts.googleapis.com") || url.hostname.endsWith("fonts.gstatic.com")
+      || (url.hostname === "www.gstatic.com" && url.pathname.startsWith("/firebasejs/"))) {
     e.respondWith(caches.match(req).then(hit => hit || fetch(req).then(res => {
       if (res.ok || res.type === "opaque") { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); }
       return res;

@@ -15,6 +15,11 @@
 <meta name="apple-mobile-web-app-title" content="Pebbles">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <style>html{color-scheme:light dark}:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<!-- account + sync across devices (Firebase). Without a config in firebase-config.js the app stays on-device only. -->
+<script src="firebase-config.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Source+Sans+3:wght@400;600;700&family=JetBrains+Mono:wght@400;600&family=Noto+Sans+SC:wght@400;500&display=swap">
 <style>
@@ -305,6 +310,36 @@ details.inner>summary{cursor:pointer}
       <div class="xpbar"><i id="tbBar"></i></div><div class="note mono" id="tbProg">0 / 0 tasks</div></div>
   </header>
 
+  <section class="sheet sec" id="acctSec">
+    <div class="sec-head"><h2>Account</h2><div class="lbl" id="acctMeta">Sync across your devices</div></div>
+    <div id="acctOff" class="note">Sign-in is not set up yet. Your tasks are saved on this device only.</div>
+    <form id="acctOut" class="acct" hidden autocomplete="on">
+      <div class="note">Sign in to see the same tasks on your phone and laptop.</div>
+      <div class="addrow">
+        <input id="acEmail" type="email" autocomplete="email" placeholder="Email" aria-label="Email">
+        <input id="acPass" type="password" autocomplete="current-password" placeholder="Password (6+ characters)" aria-label="Password">
+      </div>
+      <div class="meta-row">
+        <button class="btn" type="submit" id="acIn">Sign in</button>
+        <button class="btn ghost" type="button" id="acNew">Create account</button>
+        <button class="btn ghost" type="button" id="acGoogle">Continue with Google</button>
+        <button class="btn ghost sm" type="button" id="acReset">Forgot password</button>
+      </div>
+    </form>
+    <div id="acctIn" hidden>
+      <div class="meta-row" style="margin-top:0;align-items:center">
+        <span class="chip done mono" id="acWho"></span><span class="status" id="acSync"></span>
+        <span style="flex:1"></span><button class="btn ghost sm" id="acOut">Sign out</button>
+      </div>
+      <div id="acPick" class="fix" hidden style="margin-top:12px">
+        <b>This device and your account both have tasks. Which do you want to keep?</b>
+        <div class="note" id="acPickInfo"></div>
+        <div class="meta-row"><button class="btn" id="acUseCloud">Keep my account's tasks</button><button class="btn ghost" id="acUseLocal">Keep this device's tasks</button></div>
+      </div>
+    </div>
+    <div class="status" id="acMsg" style="margin-top:8px"></div>
+  </section>
+
   <section class="sheet sec" id="nextSec" hidden>
     <div class="sec-head"><h2>Next up</h2><div class="lbl">One task at a time</div></div>
     <div class="today-grid">
@@ -547,6 +582,7 @@ function loadLocal(){try{return tidy(JSON.parse(localStorage.getItem("pebbles")|
 function saveLocal(){try{localStorage.setItem("pebbles",JSON.stringify(tasks));localStorage.setItem("pebbles-stats",JSON.stringify(stats))}catch(e){}}
 function save(){
   saveLocal();renderStats();
+  if(!applyingCloud){localUpdated=Date.now();try{localStorage.setItem("pebbles-updated",localUpdated)}catch(e){}cloudPush()}
   if(!ref||pending)return;
   pending=true;
   saving=saving.then(()=>new Promise(r=>setTimeout(r,250))).then(()=>{pending=false;return ref.set({tasks,stats})}).catch(()=>{pending=false});
@@ -1178,9 +1214,85 @@ $("importFile").onchange=async e=>{
 };
 let importArmed=null;
 
+/* ---------- account + sync across devices (Firebase Auth + Firestore: users/{uid}) ---------- */
+let applyingCloud=false,localUpdated=0,fbAuth=null,fdb=null,cloudRef=null,cloudUnsub=null,pushT=0,pendingPick=null;
+try{localUpdated=+(localStorage.getItem("pebbles-updated")||0)}catch(e){}
+const acMsg=t=>{$("acMsg").textContent=t||""}, syncMsg=t=>{$("acSync").textContent=t||""};
+const setOwner=uid=>{try{localStorage.setItem("pebbles-owner",uid)}catch(e){}};
+const getOwner=()=>{try{return localStorage.getItem("pebbles-owner")}catch(e){return null}};
+const hasData=()=>tasks.length>0||Object.values(stats.days||{}).some(d=>d.done||d.focusSec)||Object.keys(stats.rev||{}).length>0;
+function applyCloud(d){
+  applyingCloud=true;
+  try{tasks=tidy(d.tasks);stats=JSON.parse(JSON.stringify(d.stats||{}));fill();lastCount=null;number();
+    localUpdated=d.updatedAt||Date.now();try{localStorage.setItem("pebbles-updated",localUpdated)}catch(e){}saveLocal();render()}
+  finally{applyingCloud=false}
+}
+function cloudPush(now){
+  if(!cloudRef||pendingPick)return;
+  clearTimeout(pushT);syncMsg("Saving…");
+  pushT=setTimeout(()=>{
+    cloudRef.set(JSON.parse(JSON.stringify({tasks,stats,updatedAt:localUpdated})))
+      .then(()=>syncMsg("Synced "+hhmm(Date.now())))
+      .catch(()=>syncMsg("Not synced yet. It will try again when you're online."));
+  },now?0:700);
+}
+function listen(){
+  cloudUnsub?.();
+  cloudUnsub=cloudRef.onSnapshot(s=>{
+    if(!s.exists||s.metadata.hasPendingWrites)return;
+    const d=s.data();
+    if((d.updatedAt||0)>localUpdated){applyCloud(d);syncMsg("Updated from your other device "+hhmm(Date.now()))}
+  },()=>syncMsg("Sync paused. Sign in again if this keeps happening."));
+}
+async function startSync(user){
+  cloudRef=fdb.collection("users").doc(user.uid);
+  try{
+    const snap=await cloudRef.get(),d=snap.exists?snap.data():null;
+    const cloudHas=d&&((d.tasks||[]).length||Object.keys(d.stats?.days||{}).length);
+    if(!cloudHas){setOwner(user.uid);cloudPush(true);listen();return}                       // first sign-in: upload this device
+    if(!hasData()||getOwner()===user.uid){                                                     // same person's device: newest wins
+      if(getOwner()===user.uid&&localUpdated>(d.updatedAt||0))cloudPush(true);else applyCloud(d);
+      setOwner(user.uid);listen();syncMsg("Synced "+hhmm(Date.now()));return;
+    }
+    pendingPick=d;$("acPick").hidden=false;                                                    // both have different data: you choose
+    $("acPickInfo").textContent=`Account: ${(d.tasks||[]).length} tasks. This device: ${tasks.length} tasks.`;
+  }catch(err){syncMsg("Couldn't reach your account. Check your connection.")}
+}
+function stopSync(){cloudUnsub?.();cloudUnsub=null;cloudRef=null;pendingPick=null;$("acPick").hidden=true;syncMsg("")}
+$("acUseCloud").onclick=()=>{const d=pendingPick;pendingPick=null;$("acPick").hidden=true;applyCloud(d);setOwner(fbAuth.currentUser.uid);listen();syncMsg("Synced "+hhmm(Date.now()))};
+$("acUseLocal").onclick=()=>{pendingPick=null;$("acPick").hidden=true;setOwner(fbAuth.currentUser.uid);localUpdated=Date.now();cloudPush(true);listen()};
+const AUTH_ERR={
+  "auth/invalid-credential":"Email or password is wrong.","auth/wrong-password":"Email or password is wrong.","auth/user-not-found":"No account with that email. Tap Create account.",
+  "auth/email-already-in-use":"That email already has an account. Tap Sign in.","auth/weak-password":"Use at least 6 characters for the password.",
+  "auth/invalid-email":"That email doesn't look right.","auth/missing-password":"Type your password.","auth/network-request-failed":"No internet connection. Try again when you're online.",
+  "auth/too-many-requests":"Too many tries. Wait a minute, then try again.","auth/popup-closed-by-user":"Google sign-in was closed before it finished.",
+  "auth/unauthorized-domain":"This web address isn't allowed yet. Add it in Firebase → Authentication → Settings → Authorized domains."
+};
+const authFail=e=>acMsg(AUTH_ERR[e?.code]||(String(e?.code).startsWith("auth/api-key")?"Sign-in isn't set up correctly. Check the config in firebase-config.js.":"Something went wrong: "+(e?.message||e)));
+function initAccount(){
+  const cfg=window.FIREBASE_CONFIG;
+  if(!cfg){$("acctOff").hidden=false;return}
+  if(!window.firebase){$("acctOff").hidden=false;$("acctOff").textContent="Can't reach sign-in right now. Your tasks are still saved on this device.";return}
+  firebase.initializeApp(cfg);fbAuth=firebase.auth();fdb=firebase.firestore();
+  $("acctOff").hidden=true;
+  fbAuth.getRedirectResult().catch(authFail);
+  fbAuth.onAuthStateChanged(u=>{
+    $("acctOut").hidden=!!u;$("acctIn").hidden=!u;acMsg("");
+    $("acctMeta").textContent=u?"Signed in":"Sync across your devices";
+    if(u){$("acWho").textContent=u.email||u.displayName||"Signed in";startSync(u)}else stopSync();
+  });
+  $("acctOut").onsubmit=e=>{e.preventDefault();acMsg("Signing in…");fbAuth.signInWithEmailAndPassword($("acEmail").value.trim(),$("acPass").value).catch(authFail)};
+  $("acNew").onclick=()=>{acMsg("Creating your account…");fbAuth.createUserWithEmailAndPassword($("acEmail").value.trim(),$("acPass").value).catch(authFail)};
+  $("acGoogle").onclick=()=>{const p=new firebase.auth.GoogleAuthProvider();
+    fbAuth.signInWithPopup(p).catch(e=>{if(["auth/popup-blocked","auth/operation-not-supported-in-this-environment","auth/cancelled-popup-request"].includes(e.code))fbAuth.signInWithRedirect(p);else authFail(e)})};
+  $("acReset").onclick=()=>{const em=$("acEmail").value.trim();if(!em){acMsg("Type your email first, then tap Forgot password.");return}
+    fbAuth.sendPasswordResetEmail(em).then(()=>acMsg("Check your email for a link to reset your password.")).catch(authFail)};
+  $("acOut").onclick=()=>{stopSync();fbAuth.signOut()};
+}
+
 /* ---------- start ---------- */
 try{navigator.storage?.persist?.()}catch(e){}
-tasks=loadLocal();number();render();connect();
+tasks=loadLocal();number();render();connect();initAccount();
 if("serviceWorker" in navigator&&location.protocol!=="file:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
