@@ -191,7 +191,7 @@ details.inner>summary{cursor:pointer}
 [hidden]{display:none!important}
 .next-task{font-family:var(--f-display);font-weight:700;font-size:clamp(1.8rem,5vw,2.4rem);line-height:1.1;margin-top:10px;overflow-wrap:anywhere}
 .quick{display:flex;gap:10px;flex-wrap:wrap}
-.quick select{flex:1 1 260px;min-width:0;font-family:var(--f-display);font-weight:700;font-size:clamp(1.3rem,4vw,1.7rem);color:var(--ink);background:var(--paper);border:1.5px solid var(--ink);border-radius:2px;padding:8px 10px}
+.quick select{flex:1 1 260px;min-width:0;width:100%;max-width:100%;font-family:var(--f-display);font-weight:700;font-size:clamp(1.3rem,4vw,1.7rem);color:var(--ink);background:var(--paper);border:1.5px solid var(--ink);border-radius:2px;padding:8px 10px}
 .quick .btn{font-size:1.15rem;padding:10px 24px}
 .addrow{display:flex;gap:8px;margin-bottom:14px}
 .addrow input{flex:1;min-width:0;font:inherit;font-size:1.1rem;color:var(--ink);background:var(--paper);border:1.5px solid var(--ink);border-radius:2px;padding:10px 12px}
@@ -212,6 +212,30 @@ details.inner>summary{cursor:pointer}
 .btn.sm{padding:6px 12px;font-size:.9rem}
 .done .btn.sm{display:none}
 @media (max-width:520px){.trow{gap:8px;padding:8px}.trow .qtag{display:none}.ib{width:32px;height:32px}}
+/* phones: task name takes the full first line, the buttons sit on their own line underneath */
+@media (max-width:600px){
+  .trow{flex-wrap:wrap}
+  .trow .tmain{flex:1 1 calc(100% - 110px)}
+  .trow .ib.edit{margin-left:auto}
+  .trow.editing .tedit{flex-basis:100%}
+  .addrow .duefield{flex:1 1 auto}
+  .addrow .btn{flex:1 1 100%}
+  .monthnav{width:100%;justify-content:space-between}
+  .mod .mtop h3{flex:1 1 100%}
+  #acctOut .addrow input,.grp-forms .addrow input{flex:1 1 100%}
+  .gm{grid-template-columns:1fr}.gm .nums{text-align:left}
+  .drow{grid-template-columns:minmax(0,7em) minmax(0,1fr) auto;gap:8px}
+  .sec-head{row-gap:8px}
+}
+/* touch screens: bigger tap targets */
+@media (pointer:coarse){
+  .mv button{width:40px;height:30px;font-size:.85rem}
+  .tmeta button.chip,.where button.chip,.dis-edit .chip{min-height:36px;padding:6px 12px}
+  .ib{width:40px;height:40px}
+  #mPrev,#mNext{min-width:44px;min-height:40px}
+  .minbtn{min-height:38px;padding:6px 14px}
+  .btn.sm{min-height:38px}
+}
 .people{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
 .person{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--rule);padding:4px 10px 4px 4px;font-weight:600}
 .person img{width:26px;height:26px;border-radius:50%}
@@ -274,7 +298,7 @@ details.inner>summary{cursor:pointer}
 .rw .card.claimed{border:1.5px solid var(--good)}
 .rin{font:inherit;font-size:1.05rem;font-weight:600;padding:8px 10px;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:2px;width:100%;min-width:0}
 .rin::placeholder{color:var(--muted);font-weight:400}
-#climb{height:440px;margin-top:14px}
+#climb{height:440px;margin-top:14px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 #climb:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .climb-note{margin:6px 0 18px}
 .where{border:1.5px solid var(--red);background:var(--red-soft);padding:12px;display:grid;gap:10px;text-align:left}
@@ -919,6 +943,10 @@ document.addEventListener("keydown",e=>{if(typing()||!$("focus").hidden)return;
   if(e.key==="ArrowLeft"||e.key==="ArrowRight"){held.add(e.key);keyDir=e.key==="ArrowLeft"?-1:1;if(document.activeElement===cv)e.preventDefault()}});
 document.addEventListener("keyup",e=>{if(!held.delete(e.key))return;keyDir=held.has("ArrowLeft")?-1:held.has("ArrowRight")?1:0});
 cv.addEventListener("click",()=>cv.focus());
+// phones and iPads (no arrow keys): press and hold the left or right side of the game to move
+cv.addEventListener("pointerdown",e=>{if(e.pointerType==="mouse")return;const r=cv.getBoundingClientRect();padDir=e.clientX<r.left+r.width/2?-1:1;cv.setPointerCapture?.(e.pointerId)});
+["pointerup","pointercancel","lostpointercapture"].forEach(t=>cv.addEventListener(t,e=>{if(e.pointerType!=="mouse")padDir=0}));
+if(matchMedia("(pointer:coarse)").matches)$("climbNote").textContent="Press and hold the left or right side of the game to move. Your climber can only land on a platform once its badge is done and it fills with colour.";
 window.addEventListener("blur",()=>{held.clear();keyDir=0});
 document.addEventListener("visibilitychange",()=>{if(document.hidden){cancelAnimationFrame(climbRaf);climbRaf=0;keyDir=padDir=0}else if(!still&&!climbRaf){lastT=0;climbRaf=requestAnimationFrame(drawClimb)}});
 climbRaf=requestAnimationFrame(drawClimb);
