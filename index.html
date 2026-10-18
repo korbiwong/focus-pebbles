@@ -263,6 +263,10 @@ details.inner>summary{cursor:pointer}
 .ctrl{display:flex;gap:10px;flex-wrap:wrap}
 .minbtn{font-family:var(--f-mono);font-size:.85rem;padding:5px 12px;border:1px solid var(--rule);background:var(--sheet);color:var(--ink-2);border-radius:2px}
 .minbtn.on{border-color:var(--ink);background:var(--ink);color:var(--paper)}
+.mincustom{display:inline-flex;align-items:center;gap:6px;font-family:var(--f-mono);font-size:.85rem;color:var(--ink-2);border:1px solid var(--rule);background:var(--sheet);padding:2px 10px 2px 4px;border-radius:2px}
+.mincustom input{width:64px;font:inherit;font-size:.95rem;text-align:center;color:var(--ink);background:var(--paper);border:1px solid var(--rule);border-radius:2px;padding:5px 4px}
+.mincustom.on{border-color:var(--ink)}
+.mincustom.on input{border-color:var(--ink);font-weight:600}
 .fsheet .verdict{text-align:left}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + env(safe-area-inset-bottom,0px));z-index:40;
   background:var(--sheet);border:1.5px solid var(--ink);border-left:5px solid var(--red);padding:10px 16px;font-weight:600;max-width:calc(100vw - 32px)}
@@ -1285,14 +1289,26 @@ $("clear").onclick=()=>{tasks=tasks.filter(t=>!t.done);save();render()};
 
 /* ---------- focus screen ---------- */
 let ft=null,total=25*60,left=total,endAt=0,timer=0,wake=null,leftAt=0,runLeft=0,runAway=0;
-[15,25,45].forEach(m=>{const b=document.createElement("button");b.className="minbtn";b.textContent=m+" min";b.dataset.m=m;
-  b.onclick=()=>{stop();total=left=m*60;drawTime()};$("mins").append(b)});
+/* session length: quick picks plus your own number of minutes; remembered for next time */
+function setLength(m){m=Math.max(1,Math.min(300,Math.round(m)||25));stop();total=left=m*60;stats.focusMin=m;save();drawTime()}
+[15,25,45,60].forEach(m=>{const b=document.createElement("button");b.className="minbtn";b.textContent=m+" min";b.dataset.m=m;
+  b.onclick=()=>setLength(m);$("mins").append(b)});
+{const lab=document.createElement("label");lab.className="mincustom";
+ lab.innerHTML='<input type="number" id="fCustom" min="1" max="300" step="1" inputmode="numeric" aria-label="Your own length in minutes" placeholder="Own"><span>min</span>';
+ $("mins").append(lab);
+ const inp=lab.querySelector("input");
+ inp.addEventListener("change",()=>{if(inp.value)setLength(+inp.value)});
+ inp.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();inp.blur()}});}
 function drawTime(){
-  $("fTime").textContent=mmss(left);$("fBar").style.width=((1-left/total)*100)+"%";
+  $("fTime").textContent=total>=3600&&left>=3600?Math.floor(left/3600)+":"+mmss(left%3600).padStart(5,"0"):mmss(left);
+  $("fBar").style.width=((1-left/total)*100)+"%";
+  const preset=[...document.querySelectorAll(".minbtn")].some(b=>+b.dataset.m*60===total);
   document.querySelectorAll(".minbtn").forEach(b=>b.classList.toggle("on",+b.dataset.m*60===total));
+  const ci=$("fCustom");if(ci&&document.activeElement!==ci){ci.value=preset?"":Math.round(total/60)}
+  ci?.parentElement.classList.toggle("on",!preset);
 }
 function openFocus(t){
-  flushAway();ft=t;stop();left=total;$("nudge").hidden=true;
+  flushAway();ft=t;stop();total=(stats.focusMin||25)*60;left=total;$("nudge").hidden=true;
   $("fText").textContent=t.text;$("fTag").textContent=t.mod?"Revision · counts toward this week's goal":tag(t);$("fTag").style.color=`var(${t.color})`;
   $("rule").textContent=myDoc?"Stay on this page. If you leave, your group will see.":"Stay on this page. No YouTube.";
   $("focus").hidden=false;drawTime();
