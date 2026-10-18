@@ -70,6 +70,14 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 /* Title block */
 .tb{display:grid;grid-template-columns:2.2fr 1fr 1fr 1.3fr;border:1.5px solid var(--ink);background:var(--sheet)}
 .tb>div{padding:10px 14px;border-left:1px solid var(--ink);min-width:0}
+.tb-name{position:relative;padding-right:112px!important}
+.acct-btn{position:absolute;top:10px;right:12px;display:inline-flex;align-items:center;gap:6px;max-width:150px;padding:6px 10px;border:1.5px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:999px;font-weight:600;font-size:.88rem}
+.acct-btn svg{width:18px;height:18px;flex:none}
+.acct-btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.acct-btn.on{background:var(--good-soft);border-color:var(--good);color:var(--good)}
+.acct-overlay{position:fixed;inset:0;z-index:30;background:rgba(14,24,36,.45);display:flex;align-items:flex-start;justify-content:center;overflow:auto;
+  padding:calc(24px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
+.acct-overlay #acctSec{width:min(560px,100%);box-shadow:0 18px 50px rgba(0,0,0,.25)}
 .tb>div:first-child{border-left:0}
 .tb h1{font-size:2.3rem;text-transform:uppercase;letter-spacing:.03em}
 .tb .big{font-family:var(--f-display);font-size:2rem;font-weight:700;line-height:1}
@@ -363,7 +371,9 @@ details.inner>summary{cursor:pointer}
 
 <div class="wrap">
   <header class="tb">
-    <div><div class="lbl">Drawing No. FP-001 · Daily task sheet</div><h1>Focus Pebbles</h1><div class="note" id="date"></div></div>
+    <div class="tb-name"><div class="lbl">Drawing No. FP-001 · Daily task sheet</div><h1>Focus Pebbles</h1><div class="note" id="date"></div>
+      <button class="acct-btn" id="acctBtn" type="button" aria-haspopup="dialog"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg><span id="acctBtnTxt">Sign in</span></button>
+    </div>
     <div><div class="lbl">Done today</div><div class="big mono" id="tbDone">0</div><div class="note" id="tbOpen">0 open</div></div>
     <div><div class="lbl">Focused today</div><div class="big mono" id="tbFocus">0m</div><div class="note" id="tbStreak">0-day streak</div></div>
     <div><div class="lbl">Today's progress</div><div class="big" style="font-size:1.45rem" id="tbLevel">Getting started</div>
@@ -379,8 +389,9 @@ details.inner>summary{cursor:pointer}
     <div class="meta-row" style="margin-top:8px"><span class="qtag" id="nextTag"></span></div>
   </section>
 
-  <section class="sheet sec" id="acctSec">
-    <div class="sec-head"><h2>Account</h2><div class="lbl" id="acctMeta">Sync across your devices</div></div>
+  <div class="acct-overlay" id="acctOverlay" hidden>
+  <section class="sheet sec" id="acctSec" role="dialog" aria-modal="true" aria-labelledby="acctTitle">
+    <div class="sec-head"><h2 id="acctTitle">Account</h2><div class="monthnav"><span class="lbl" id="acctMeta">Sync across your devices</span><button class="btn ghost sm" type="button" id="acctClose">Close</button></div></div>
     <div id="acctOff" class="note">Sign-in is not set up yet. Your tasks are saved on this device only.</div>
     <form id="acctOut" class="acct" hidden autocomplete="on">
       <div class="note">Sign in to see the same tasks on your phone and laptop.</div>
@@ -408,10 +419,11 @@ details.inner>summary{cursor:pointer}
     </div>
     <div class="status" id="acMsg" style="margin-top:8px"></div>
   </section>
+  </div>
 
   <section class="sheet sec" id="grpSec">
     <div class="sec-head"><h2>Groups</h2><div class="lbl">Focus together</div></div>
-    <div class="note" id="grpOff">Sign in above to create or join a group with friends.</div>
+    <div class="note" id="grpOff">Sign in to create or join a group with friends. <button class="btn ghost sm" type="button" id="grpSignIn">Sign in</button></div>
     <div id="grpOn" hidden>
       <div class="grp-setup">
         <label class="duefield"><span class="lbl">Your name in groups</span><input id="gName" maxlength="24" placeholder="e.g. Korbi" aria-label="Your name in groups"></label>
@@ -1568,7 +1580,7 @@ function groupsAuth(u){
     $("gShareTask").checked=!!stats.gprefs.shareTask;$("gShareDis").checked=!!stats.gprefs.shareDis}
   syncGroupSubs();renderGroups();
 }
-$("gName").addEventListener("change",()=>{stats.gprefs.name=$("gName").value.trim();save();pushPresence(true)});
+$("gName").addEventListener("change",()=>{stats.gprefs.name=$("gName").value.trim();save();pushPresence(true);if(gUser)$("acctBtnTxt").textContent=myName()});
 $("gShareTask").onchange=()=>{stats.gprefs.shareTask=$("gShareTask").checked;save();pushPresence(true)};
 $("gShareDis").onchange=()=>{stats.gprefs.shareDis=$("gShareDis").checked;save();pushPresence(true)};
 $("gCreate").onsubmit=async e=>{
@@ -1657,7 +1669,7 @@ async function startSync(user){
       if(getOwner()===user.uid&&localUpdated>(d.updatedAt||0))cloudPush(true);else applyCloud(d);
       setOwner(user.uid);listen();syncMsg("Synced "+hhmm(Date.now()));return;
     }
-    pendingPick=d;$("acPick").hidden=false;                                                    // both have different data: you choose
+    pendingPick=d;$("acPick").hidden=false;openAccount();                                                    // both have different data: you choose
     $("acPickInfo").textContent=`Account: ${(d.tasks||[]).length} tasks. This device: ${tasks.length} tasks.`;
   }catch(err){syncMsg("Couldn't reach your account. Check your connection.")}
 }
@@ -1672,6 +1684,12 @@ const AUTH_ERR={
   "auth/unauthorized-domain":"This web address isn't allowed yet. Add it in Firebase → Authentication → Settings → Authorized domains."
 };
 const authFail=e=>acMsg(AUTH_ERR[e?.code]||(String(e?.code).startsWith("auth/api-key")?"Sign-in isn't set up correctly. Check the config in firebase-config.js.":"Something went wrong: "+(e?.message||e)));
+/* Account lives in its own panel, opened from the button in the top corner */
+function openAccount(){$("acctOverlay").hidden=false;setTimeout(()=>{(!$("acctOut").hidden?$("acEmail"):$("acctClose")).focus()},0)}
+function closeAccount(){$("acctOverlay").hidden=true;$("acctBtn").focus()}
+$("acctBtn").onclick=openAccount;$("grpSignIn").onclick=openAccount;$("acctClose").onclick=closeAccount;
+$("acctOverlay").addEventListener("click",e=>{if(e.target===$("acctOverlay"))closeAccount()});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("acctOverlay").hidden)closeAccount()});
 function initAccount(){
   const cfg=window.FIREBASE_CONFIG;
   if(!cfg){$("acctOff").hidden=false;return}
@@ -1684,6 +1702,8 @@ function initAccount(){
     $("acctMeta").textContent=u?"Signed in":"Sync across your devices";
     if(u){$("acWho").textContent=u.email||u.displayName||"Signed in";startSync(u)}else stopSync();
     groupsAuth(u);
+    $("acctBtnTxt").textContent=u?(stats.gprefs?.name||(u.email||"Account").split("@")[0]):"Sign in";$("acctBtn").classList.toggle("on",!!u);
+    if(u&&!$("acctOverlay").hidden&&!pendingPick)setTimeout(closeAccount,900);   // signed in: close the panel
   });
   $("acctOut").onsubmit=e=>{e.preventDefault();acMsg("Signing in…");fbAuth.signInWithEmailAndPassword($("acEmail").value.trim(),$("acPass").value).catch(authFail)};
   $("acNew").onclick=()=>{acMsg("Creating your account…");fbAuth.createUserWithEmailAndPassword($("acEmail").value.trim(),$("acPass").value).catch(authFail)};
