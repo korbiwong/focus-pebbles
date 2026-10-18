@@ -1,6 +1,6 @@
 // Focus Pebbles offline support: keep the app files on the device so it opens without internet.
 // Bump VERSION whenever index.html changes, so devices pick up the new copy.
-const VERSION = "fp-v5";
+const VERSION = "fp-v6";
 const APP = ["./", "index.html", "manifest.webmanifest", "firebase-config.js","icons/icon.svg", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -28,7 +28,7 @@ self.addEventListener("fetch", e => {
 
   // Your sign-in setup: fetch fresh when online so a new config takes effect, saved copy when offline.
   if (url.origin === location.origin && url.pathname.endsWith("/firebase-config.js")) {
-    e.respondWith(fetch(req).then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); return res; })
+    e.respondWith(fetch(req, { cache: "no-store" }).then(res => { const copy = res.clone(); caches.open(VERSION).then(c => c.put(req, copy)); return res; })
       .catch(() => caches.match(req)));
     return;
   }
