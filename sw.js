@@ -1,6 +1,6 @@
 // Focus Pebbles offline support: keep the app files on the device so it opens without internet.
 // Bump VERSION whenever index.html changes, so devices pick up the new copy.
-const VERSION = "fp-v9";
+const VERSION = "fp-v10";
 const APP = ["./", "index.html", "manifest.webmanifest", "firebase-config.js","icons/icon.svg", "icons/icon-180.png", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", e => {

@@ -848,6 +848,13 @@ function drawClimber(x,y,sx,sy,face,ink,body,eye,mood){
     g.fillStyle="#fff";g.beginPath();ex.forEach(e=>{g.moveTo(e+3.6,ey);g.arc(e,ey,3.6,0,7)});g.fill();
     g.fillStyle=soot;g.beginPath();ex.forEach(e=>{g.moveTo(e+2.6,ey+.3);g.arc(e+1.1,ey+.3,1.5,0,7)});g.fill();
   }
+  // yellow site hard hat (it's an engineer)
+  const hy=cy-R+3.5;
+  g.lineWidth=.9;g.strokeStyle="#7a5a00";g.fillStyle="#f5c518";
+  g.beginPath();g.ellipse(1,hy,R+3.2,2.1,0,0,7);g.fill();g.stroke();                       // brim
+  g.beginPath();g.moveTo(-R+0.5,hy);g.quadraticCurveTo(-R+1,hy-11,1,hy-11.5);g.quadraticCurveTo(R+1,hy-11,R+1.5,hy);g.closePath();g.fill();g.stroke();   // dome
+  g.beginPath();g.moveTo(1,hy-11.3);g.lineTo(1,hy-1);g.moveTo(-3.5,hy-10);g.lineTo(-4.5,hy-1.5);g.moveTo(5.5,hy-10);g.lineTo(6.5,hy-1.5);g.stroke();   // ridges
+  g.save();g.globalAlpha=.55;g.fillStyle="#fff";g.beginPath();g.ellipse(-4,hy-7,1.6,3,-.5,0,7);g.fill();g.restore();   // shine
   g.restore();
 }
 let puffs=[];   // little dust puffs when it lands
