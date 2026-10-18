@@ -1,9 +1,40 @@
 rules_version = '2';
-// Each signed-in person can read and write only their own document: users/{their user id}.
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // Your own tasks and progress: only you can read or change them.
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Groups: the document id is the 6-character invite code.
+    function isMember(code) {
+      return request.auth != null
+        && request.auth.uid in get(/databases/$(database)/documents/groups/$(code)).data.members;
+    }
+
+    match /groups/{code} {
+      // Anyone signed in who knows the code can open the group (needed to join). Listing all groups is not allowed.
+      allow get: if request.auth != null;
+      allow list: if false;
+      // Create: you start as the owner and only member.
+      allow create: if request.auth != null
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.members == [request.auth.uid];
+      // Members can change the group (name, goals, leaving). Others can only add themselves to members.
+      allow update: if request.auth != null && (
+        request.auth.uid in resource.data.members
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['members'])
+            && request.resource.data.members.toSet() == resource.data.members.toSet().union([request.auth.uid].toSet())
+            && request.resource.data.members.size() == resource.data.members.size() + 1)
+      );
+      allow delete: if request.auth != null && request.auth.uid == resource.data.owner;
+
+      // What each member shares: everyone in the group can read it; you can only write your own.
+      match /members/{uid} {
+        allow read: if isMember(code);
+        allow write: if request.auth != null && request.auth.uid == uid && (isMember(code) || request.method == 'delete');
+      }
     }
   }
 }

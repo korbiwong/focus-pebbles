@@ -287,6 +287,29 @@ details.inner>summary{cursor:pointer}
 .drow .xpbar{margin:0;height:12px}
 .drow .xpbar i{background:var(--red)}
 #disSec.editing .dis-edit{display:block}
+.grp-setup{display:flex;gap:10px 16px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.gchk{display:inline-flex;gap:6px;align-items:center;font-size:.95rem;color:var(--ink-2)}
+.grp-forms{display:grid;gap:4px}
+.groups{display:grid;gap:16px;margin-top:10px}
+.gcard{border:1.5px solid var(--ink);background:var(--sheet);padding:14px;display:grid;gap:12px}
+.ghead{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.ghead h3{flex:1;min-width:0;font-size:1.4rem;overflow-wrap:anywhere}
+.gmembers{display:grid;gap:6px}
+.gm{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 12px;align-items:center;border:1px solid var(--rule);padding:8px 10px}
+.gm.focus{border-color:var(--good);background:var(--good-soft)}
+.gm.away{border-color:var(--red);background:var(--red-soft)}
+.gm .who{font-weight:700;overflow-wrap:anywhere}
+.gm .what{font-size:.9rem;color:var(--ink-2);grid-column:1/-1;overflow-wrap:anywhere}
+.gm .nums{font-family:var(--f-mono);font-size:.8rem;color:var(--ink-2);text-align:right}
+.ggoals{display:grid;gap:8px}
+.ggoal{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px 12px;align-items:center;border:1px solid var(--rule);padding:10px;background:var(--sheet)}
+.ggoal.got{border-color:var(--gold);background:var(--gold-soft)}
+.ggoal .ic{font-family:var(--f-display);font-weight:700;width:40px;height:40px;border:2px solid var(--muted);border-radius:50%;display:grid;place-items:center;color:var(--muted)}
+.ggoal.got .ic{border-color:var(--gold);color:var(--gold)}
+.ggoal .xpbar{grid-column:2/-1;margin:0}
+.gform{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.gform select,.gform input{font:inherit;padding:6px 8px;border:1px solid var(--ink);background:var(--paper);color:var(--ink);border-radius:2px}
+.gform input[type=number]{width:80px}
 .mods{display:grid;gap:10px}
 .mod{border:1px solid var(--rule);background:var(--sheet);padding:12px 14px;display:grid;gap:8px}
 .mod.met{border-color:var(--good);background:var(--good-soft)}
@@ -360,6 +383,24 @@ details.inner>summary{cursor:pointer}
       </div>
     </div>
     <div class="status" id="acMsg" style="margin-top:8px"></div>
+  </section>
+
+  <section class="sheet sec" id="grpSec">
+    <div class="sec-head"><h2>Groups</h2><div class="lbl">Focus together</div></div>
+    <div class="note" id="grpOff">Sign in above to create or join a group with friends.</div>
+    <div id="grpOn" hidden>
+      <div class="grp-setup">
+        <label class="duefield"><span class="lbl">Your name in groups</span><input id="gName" maxlength="24" placeholder="e.g. Korbi" aria-label="Your name in groups"></label>
+        <label class="gchk"><input type="checkbox" id="gShareTask"> Show my task names</label>
+        <label class="gchk"><input type="checkbox" id="gShareDis"> Share my distractions</label>
+      </div>
+      <div class="grp-forms">
+        <form class="addrow" id="gCreate" autocomplete="off"><input id="gNewName" maxlength="40" placeholder="New group name, e.g. CEG study crew" aria-label="New group name"><button class="btn" type="submit">Create group</button></form>
+        <form class="addrow" id="gJoin" autocomplete="off"><input id="gCode" maxlength="6" placeholder="Invite code, e.g. K7P2QX" aria-label="Invite code" style="text-transform:uppercase"><button class="btn ghost" type="submit">Join group</button></form>
+      </div>
+      <div class="status" id="gMsg"></div>
+      <div class="groups" id="groups"></div>
+    </div>
   </section>
 
   <section class="sheet sec">
@@ -611,6 +652,7 @@ function fill(){
   stats.rev=stats.rev||{};
   stats.distract=stats.distract||{apps:["YouTube","Instagram","TikTok","WhatsApp","Messages","Other"],log:[]};
   stats.distract.apps=stats.distract.apps||[];stats.distract.log=stats.distract.log||[];
+  stats.groups=stats.groups||[];stats.gprefs=stats.gprefs||{name:"",shareTask:false,shareDis:false};
 }
 fill();
 function loadLocal(){try{return tidy(JSON.parse(localStorage.getItem("pebbles")||"[]"))}catch(e){return[]}}
@@ -618,6 +660,7 @@ function saveLocal(){try{localStorage.setItem("pebbles",JSON.stringify(tasks));l
 function save(){
   saveLocal();renderStats();
   if(!applyingCloud){localUpdated=Date.now();try{localStorage.setItem("pebbles-updated",localUpdated)}catch(e){}cloudPush()}
+  pushPresence();
   if(!ref||pending)return;
   pending=true;
   saving=saving.then(()=>new Promise(r=>setTimeout(r,250))).then(()=>{pending=false;return ref.set({tasks,stats})}).catch(()=>{pending=false});
@@ -731,7 +774,7 @@ function renderStats(){
   if(fresh)setTimeout(save,0);
   const count=earnedCount();
   $("badgeMeta").textContent=count+" of "+stats.badges.length+" earned";
-  renderBadges();renderRewards(count);climbSetup(count);renderRevision();renderDistract();renderQuick();
+  renderBadges();renderRewards(count);climbSetup(count);renderRevision();renderDistract();renderQuick();syncGroupSubs();
   if(lastCount!==null&&count>lastCount){
     const hit=rewardsSorted().find(r=>r.at===count&&!r.claimedAt);
     if(hit)setTimeout(()=>{stamp("Reward unlocked",hit.text||"Choose it below","gold",3000);chime([523,659,784,1047,1319])},900);
@@ -780,15 +823,38 @@ function drawGift(x,y,c){g.strokeStyle=c;g.lineWidth=1.5;g.strokeRect(x-8,y-14,1
 function drawTrophy(x,y,c){g.strokeStyle=c;g.fillStyle=c;g.lineWidth=1.5;g.beginPath();g.moveTo(x-8,y-22);g.lineTo(x+8,y-22);g.quadraticCurveTo(x+8,y-10,x,y-9);g.quadraticCurveTo(x-8,y-10,x-8,y-22);g.fill();
   g.beginPath();g.moveTo(x-8,y-19);g.arc(x-10,y-16,3,-Math.PI/2,Math.PI/2,true);g.moveTo(x+8,y-19);g.arc(x+10,y-16,3,-Math.PI/2,Math.PI/2);g.stroke();
   g.fillRect(x-1.5,y-9,3,5);g.fillRect(x-6,y-4,12,3)}
-function drawClimber(x,y,sx,sy,face,ink,body,eye){
-  g.save();g.translate(x,y);g.scale(face*sx,sy);g.lineWidth=1.6;g.strokeStyle=ink;
-  g.beginPath();[-6,0,6].forEach(lx=>{g.moveTo(lx,-6);g.lineTo(lx-1,0)});g.stroke();          // legs
-  g.beginPath();g.roundRect(-11,-30,22,25,[11,11,4,4]);g.fillStyle=body;g.fill();g.stroke();  // body
-  g.beginPath();g.moveTo(-11,-12);g.lineTo(11,-12);g.moveTo(-11,-9);g.lineTo(11,-9);g.stroke(); // field-book stripes
-  g.beginPath();g.roundRect(9,-23,9,6,2);g.fillStyle=body;g.fill();g.stroke();               // snout
-  g.fillStyle=eye;g.beginPath();g.arc(-3,-22,3.2,0,7);g.arc(4,-22,3.2,0,7);g.fill();g.stroke();
-  g.fillStyle=ink;g.beginPath();g.arc(-2,-22,1.4,0,7);g.arc(5,-22,1.4,0,7);g.fill();
+// "Pebble": a round little sprout. Squashes on landing, stretches going up, blinks, smiles (^ ^) while rising.
+function drawClimber(x,y,sx,sy,face,ink,body,eye,mood){
+  const now=performance.now(),blink=(now%3600)<120,happy=mood==="up";
+  const S=1.6;   // overall size
+  g.save();g.translate(x,y);g.scale(face*sx*S,sy*S);g.lineWidth=1.5;g.strokeStyle=ink;g.lineCap="round";g.lineJoin="round";
+  // feet
+  g.fillStyle=ink;g.beginPath();g.ellipse(-6,-1.5,4,2.2,0,0,7);g.ellipse(6,-1.5,4,2.2,0,0,7);g.fill();
+  // round body
+  g.beginPath();g.ellipse(0,-16,15,14.5,0,0,7);g.fillStyle=body;g.fill();g.stroke();
+  // lighter tummy
+  g.save();g.globalAlpha=.35;g.fillStyle=eye;g.beginPath();g.ellipse(2,-10,8.5,6.5,0,0,7);g.fill();g.restore();
+  // sprout on top
+  g.beginPath();g.moveTo(0,-30);g.quadraticCurveTo(-1,-35,1,-38);g.stroke();
+  g.beginPath();g.moveTo(1,-37);g.quadraticCurveTo(9,-44,12,-36);g.quadraticCurveTo(6,-33,1,-37);g.fillStyle=body;g.fill();g.stroke();
+  // eyes
+  if(happy){g.beginPath();g.arc(-3,-18,3.2,Math.PI*1.1,Math.PI*1.9);g.moveTo(9.2,-19.5);g.arc(7,-18,3.2,Math.PI*1.1,Math.PI*1.9);g.stroke()}
+  else if(blink){g.beginPath();g.moveTo(-6,-18);g.lineTo(0,-18);g.moveTo(4,-18);g.lineTo(10,-18);g.stroke()}
+  else{
+    g.fillStyle=ink;g.beginPath();g.ellipse(-3,-18,3.1,3.8,0,0,7);g.ellipse(7,-18,3.1,3.8,0,0,7);g.fill();
+    g.fillStyle=eye;g.beginPath();g.arc(-2,-19.5,1.2,0,7);g.arc(8,-19.5,1.2,0,7);g.fill();   // sparkle
+  }
+  // blush
+  g.fillStyle="rgba(255,120,150,.55)";g.beginPath();g.ellipse(-8,-12.5,3.2,2,0,0,7);g.ellipse(12,-12.5,3,2,0,0,7);g.fill();
+  // mouth
+  g.beginPath();if(happy||mood==="land"){g.arc(2,-12.5,2.6,0.1*Math.PI,0.9*Math.PI)}else{g.moveTo(0.5,-12);g.quadraticCurveTo(2,-10.8,3.5,-12)}g.stroke();
   g.restore();
+}
+let puffs=[];   // little dust puffs when it lands
+function drawPuffs(now,col){
+  puffs=puffs.filter(p=>now-p.t<350);
+  puffs.forEach(p=>{const k=(now-p.t)/350;g.save();g.globalAlpha=(1-k)*.6;g.fillStyle=col;
+    [-1,1].forEach(s=>{g.beginPath();g.arc(p.x+s*(8+k*14),p.y-2-k*4,3*(1-k)+1,0,7);g.fill()});g.restore()});
 }
 function drawClimb(now){
   const r=cv.getBoundingClientRect(),dpr=devicePixelRatio||1;
@@ -820,11 +886,14 @@ function drawClimb(now){
     const prev=cl.y;cl.vy+=GRAV*dt;cl.y+=cl.vy*dt;
     if(cl.vy>0)for(let i=cl.earned;i>=0;i--){
       const p=plat(i,W,H);
-      if(prev<=p.y&&cl.y>=p.y&&(i===0||Math.abs(cl.x-p.x)<=p.w/2+8)){cl.y=p.y;cl.vy=-vy0;cl.land=now;landed(i);break}
+      if(prev<=p.y&&cl.y>=p.y&&(i===0||Math.abs(cl.x-p.x)<=p.w/2+8)){cl.y=p.y;cl.vy=-vy0;cl.land=now;puffs.push({x:cl.x,y:p.y,t:now});landed(i);break}
     }
   }else{const p=plat(cl.earned,W,H);cl.x=p.x;cl.y=p.y}
-  const sq=now-cl.land<90;
-  drawClimber(cl.x,cl.y,sq?1.15:1,sq?.82:1,cl.face,ink,cl.earned>=cl.N&&cl.N?gold:good,sheet);
+  // squash & stretch: squish right after landing, stretch tall while shooting up
+  const since=now-cl.land,sqk=since<140?Math.sin(since/140*Math.PI):0,rising=cl.vy<-vy0*.45;
+  const sx=1+.22*sqk-(rising?.07:0),sy=1-.25*sqk+(rising?.1:0);
+  drawPuffs(now,muted);
+  drawClimber(cl.x,cl.y,sx,sy,cl.face,ink,cl.earned>=cl.N&&cl.N?gold:good,sheet,since<220?"land":rising?"up":"");
   climbRaf=still?0:requestAnimationFrame(drawClimb);
 }
 function landed(i){
@@ -862,6 +931,7 @@ let meWriting=Promise.resolve(), meQueued=false;
 const bootAt=Date.now();
 function writeMe(patch){
   Object.assign(mine,patch,{updated:Date.now()});
+  pushPresence(true);   // your groups see focus / left focus straight away
   if(!myDoc||meQueued)return;
   meQueued=true;
   meWriting=meWriting.then(()=>{meQueued=false;return myDoc.set({...mine})}).catch(()=>{meQueued=false});
@@ -1303,6 +1373,195 @@ function renderDistract(){
 $("editDis").onclick=()=>{editDis=!editDis;$("disSec").classList.toggle("editing",editDis);$("editDis").textContent=editDis?"Done editing":"Edit app list";$("editDis").setAttribute("aria-pressed",editDis)};
 $("disAdd").onsubmit=e=>{e.preventDefault();const v=$("disNew").value.trim();if(v&&!stats.distract.apps.includes(v)){stats.distract.apps.push(v);save()}$("disNew").value=""};
 
+/* ---------- groups (Firestore): groups/{CODE} = {name, owner, members[], goals[]}, groups/{CODE}/members/{uid} = what each person shares ---------- */
+let gUser=null,gSubs={},gData={},gMembers={},gPushT=0,gLastPush=0,gArm=null,gSeen={};
+const gBoot=Date.now();
+const gMsg=t=>{$("gMsg").textContent=t||""};
+function newCode(){const A="ABCDEFGHJKLMNPQRSTUVWXYZ23456789",r=crypto.getRandomValues(new Uint8Array(6));return [...r].map(x=>A[x%A.length]).join("")}
+function weekSums(){const mon=fromKey(wkKey());let f=0,d=0;for(let i=0;i<7;i++){const dt=new Date(mon);dt.setDate(mon.getDate()+i);const r=stats.days[dkey(dt)];if(r){f+=r.focusSec||0;d+=r.done||0}}return{f,d}}
+const myName=()=>stats.gprefs.name||(gUser?.email||"").split("@")[0]||"Someone";
+function presence(){
+  const t=stats.days[dkey()]||{done:0,focusSec:0},w=weekSums();
+  const p={name:myName(),state:mine.state||"idle",focusEnd:mine.focusEnd||0,awaySince:mine.awaySince||0,
+    label:timer&&ft?(ft.mod?"Revising "+ft.text:(stats.gprefs.shareTask?ft.text:"a task")):"",
+    todayFocus:t.focusSec||0,todayDone:t.done||0,day:dkey(),weekKey:wkKey(),weekFocus:w.f,weekDone:w.d,
+    lastAway:mine.lastAway||null,disTotal:null,disTop:"",updated:Date.now()};
+  if(stats.gprefs.shareDis){
+    const mon=fromKey(wkKey()).getTime(),wl=stats.distract.log.filter(l=>l.at>=mon),by={};
+    wl.forEach(l=>by[l.app]=(by[l.app]||0)+l.sec);const top=Object.entries(by).sort((a,b)=>b[1]-a[1])[0];
+    p.disTotal=wl.reduce((s,l)=>s+l.sec,0);p.disTop=top?top[0]:"";
+  }
+  return p;
+}
+function pushPresence(now){   // at most every 15 s, except status changes which go at once
+  if(!gUser||!fdb||!(stats.groups||[]).length)return;
+  clearTimeout(gPushT);
+  const go=()=>{gLastPush=Date.now();const p=presence();
+    stats.groups.forEach(c=>fdb.collection("groups").doc(c).collection("members").doc(gUser.uid).set(p).catch(()=>{}))};
+  if(now||Date.now()-gLastPush>15000)go();else gPushT=setTimeout(go,15000-(Date.now()-gLastPush));
+}
+function notify(text){try{if(document.hidden&&window.Notification&&Notification.permission==="granted")new Notification("Focus Pebbles",{body:text,icon:"icons/icon-192.png"})}catch(e){}}
+function askNotify(){try{if(window.Notification&&Notification.permission==="default")Notification.requestPermission()}catch(e){}}
+function syncGroupSubs(){
+  const want=gUser&&fdb?(stats.groups||[]):[];
+  Object.keys(gSubs).forEach(c=>{if(!want.includes(c)){gSubs[c].forEach(u=>u());delete gSubs[c];delete gData[c];delete gMembers[c]}});
+  let added=false;
+  want.forEach(c=>{
+    if(gSubs[c])return;added=true;
+    const ref=fdb.collection("groups").doc(c);
+    gSubs[c]=[
+      ref.onSnapshot(s=>{gData[c]=s.exists?s.data():null;renderGroups();checkGoals(c)},()=>{gData[c]={error:true};renderGroups()}),
+      ref.collection("members").onSnapshot(s=>{
+        const prev=gMembers[c],next={},now=Date.now();s.docs.forEach(d=>next[d.id]=d.data());
+        if(prev)Object.entries(next).forEach(([id,m])=>{   // someone in your group just left focus
+          if(id===gUser.uid||!prev[id])return;
+          if(statusOf(prev[id],now)!=="away"&&statusOf(m,now)==="away"&&m.updated>gBoot){const n=m.name||"Someone";toast(`${n} just left focus`);chime([440,330]);notify(`${n} just left focus`)}
+        });
+        gMembers[c]=next;renderGroups();checkGoals(c);
+      },()=>{})
+    ];
+  });
+  if(added)pushPresence(true);
+  if(!want.length)renderGroups();
+}
+setInterval(()=>{if(Object.keys(gSubs).length)renderGroups()},30000);   // keep "x min left" fresh
+
+/* shared group badges: weekly goals the whole group works toward */
+const GOAL_TYPES={
+  together_focus:{label:"Focus hours together",unit:"h"},
+  everyone_focus:{label:"Focus hours each",unit:"h"},
+  together_tasks:{label:"Tasks done together",unit:"✓"}
+};
+function goalProgress(c,goal){
+  const g=gData[c]||{},wk=wkKey(),ms=Object.entries(gMembers[c]||{}).filter(([id])=>(g.members||[]).includes(id)).map(([,m])=>m);
+  const wf=m=>m.weekKey===wk?(m.weekFocus||0):0,wd=m=>m.weekKey===wk?(m.weekDone||0):0;
+  if(goal.type==="everyone_focus"){const need=(g.members||[]).length||1,n=ms.filter(m=>wf(m)>=goal.target*3600).length;return{pct:n/need,text:`${n} of ${need} people reached ${goal.target}h`}}
+  if(goal.type==="together_tasks"){const v=ms.reduce((s,m)=>s+wd(m),0);return{pct:v/goal.target,text:`${v} of ${goal.target} tasks`}}
+  const v=ms.reduce((s,m)=>s+wf(m),0)/3600;return{pct:v/goal.target,text:`${v.toFixed(1)} of ${goal.target} hours`};
+}
+function checkGoals(c){
+  const g=gData[c];if(!g||g.error||!gUser||!(g.members||[]).includes(gUser.uid))return;
+  const wk=wkKey();let changed=false;
+  const goals=(g.goals||[]).map(goal=>{
+    if(goalProgress(c,goal).pct>=1&&!goal.earned?.[wk]){changed=true;return{...goal,earned:{...(goal.earned||{}),[wk]:Date.now()}}}
+    return goal;
+  });
+  if(changed)fdb.collection("groups").doc(c).update({goals}).catch(()=>{});
+}
+function updateGoals(c,fn){const g=gData[c];if(!g)return;fdb.collection("groups").doc(c).update({goals:fn([...(g.goals||[])])}).catch(e=>gMsg("Couldn't save that. Check your connection."))}
+
+function groupStatusText(m,now){
+  const st=statusOf(m,now);
+  if(st==="focus")return{st,txt:`Focusing${m.label?" on "+m.label:""} · ${Math.max(1,Math.round((m.focusEnd-now)/60000))} min left`};
+  if(st==="away")return{st,txt:`Left focus ${nice((now-(m.awaySince||now))/1000)} ago`};
+  const ago=now-(m.updated||0);
+  return{st,txt:ago<120000?"Online, not focusing":`Last active ${ago<3600e3?Math.round(ago/60000)+" min":ago<864e5?Math.round(ago/3600e3)+" h":Math.round(ago/864e5)+" days"} ago`};
+}
+function renderGroups(){
+  const box=$("groups");if(!box||typingIn(box))return;box.innerHTML="";
+  if(!gUser)return;
+  const now=Date.now(),wk=wkKey();
+  if(!(stats.groups||[]).length){const e=document.createElement("div");e.className="empty";e.textContent="You're not in a group yet. Create one and share the invite code, or join with a friend's code.";box.append(e);return}
+  stats.groups.forEach(c=>{
+    const g=gData[c],card=document.createElement("div");card.className="gcard";box.append(card);
+    const head=document.createElement("div");head.className="ghead";card.append(head);
+    const h=document.createElement("h3");head.append(h);
+    if(g===undefined){h.textContent="Loading group "+c+"…";return}
+    if(g===null||g.error){h.textContent=g===null?`Group ${c} no longer exists`:`Can't open group ${c}`;
+      head.append(btn("btn ghost sm","Remove",()=>{stats.groups=stats.groups.filter(x=>x!==c);save()}));return}
+    h.textContent=g.name||"Group";
+    const code=document.createElement("span");code.className="chip mono";code.textContent="Code "+c;
+    const invite=`Join my Focus Pebbles group "${g.name}". Open https://korbiwong.github.io/focus-pebbles/ , sign in, and join with code ${c}`;
+    const copy=btn("btn ghost sm","Copy invite",()=>{navigator.clipboard?.writeText(invite).then(()=>gMsg("Invite copied. Paste it to your friends."),()=>gMsg(invite))});
+    const leave=btn("btn ghost sm"+(gArm===c?" red":""),gArm===c?"Tap again to leave":"Leave",()=>{
+      if(gArm!==c){gArm=c;renderGroups();setTimeout(()=>{if(gArm===c){gArm=null;renderGroups()}},3000);return}
+      gArm=null;const ref=fdb.collection("groups").doc(c);
+      ref.collection("members").doc(gUser.uid).delete().catch(()=>{}).then(()=>ref.update({members:firebase.firestore.FieldValue.arrayRemove(gUser.uid)})).catch(()=>{});
+      stats.groups=stats.groups.filter(x=>x!==c);save();gMsg("You left "+(g.name||"the group")+".");
+    });
+    head.append(code,copy,leave);
+
+    // members, focusing first, then by this week's focus time
+    const list=document.createElement("div");list.className="gmembers";card.append(list);
+    const order={focus:0,away:1,idle:2};
+    const ms=Object.entries(gMembers[c]||{}).filter(([id])=>(g.members||[]).includes(id))
+      .sort((a,b)=>order[statusOf(a[1],now)]-order[statusOf(b[1],now)]||((b[1].weekKey===wk?b[1].weekFocus:0)-(a[1].weekKey===wk?a[1].weekFocus:0)));
+    if(!ms.length){const e=document.createElement("div");e.className="note";e.textContent="Waiting for members to open the app…";list.append(e)}
+    ms.forEach(([id,m])=>{
+      const {st,txt}=groupStatusText(m,now),row=document.createElement("div");row.className="gm "+st;
+      const who=document.createElement("span");who.className="who";who.textContent=(m.name||"Someone")+(id===gUser.uid?" (you)":"");
+      const td=m.day===dkey(),wf=m.weekKey===wk?m.weekFocus||0:0;
+      const nums=document.createElement("span");nums.className="nums";
+      nums.textContent=`Today ${fmtMin(td?m.todayFocus||0:0)} · ${td?m.todayDone||0:0}✓  |  Week ${fmtMin(wf)}`;
+      const what=document.createElement("span");what.className="what";
+      what.textContent=txt+(m.disTotal!=null&&m.weekKey===wk&&m.disTotal>0?` · Distracted ${fmtMin(m.disTotal)} this week${m.disTop?" (mostly "+m.disTop+")":""}`:"");
+      row.append(who,nums,what);list.append(row);
+    });
+
+    // shared badges
+    const gh=document.createElement("div");gh.className="sec-head";gh.style.margin="4px 0 0";
+    gh.innerHTML='<h3>Group badges</h3><span class="lbl">Weekly goals you earn together</span>';card.append(gh);
+    const goalsBox=document.createElement("div");goalsBox.className="ggoals";card.append(goalsBox);
+    const goals=g.goals||[];
+    if(!goals.length){const e=document.createElement("div");e.className="note";e.textContent="No group goals yet. Add one below.";goalsBox.append(e)}
+    goals.forEach(goal=>{
+      const pr=goalProgress(c,goal),got=!!goal.earned?.[wk],times=Object.keys(goal.earned||{}).length;
+      const key=c+goal.id+wk;
+      if(got&&gSeen[key]===false){stamp("Group badge earned",goal.name,"gold",3000);chime([523,659,784,1047,1319]);notify(`Your group earned "${goal.name}"!`)}
+      gSeen[key]=got;
+      const r=document.createElement("div");r.className="ggoal"+(got?" got":"");
+      const ic=document.createElement("div");ic.className="ic";ic.textContent=goal.ic||"★";
+      const t=document.createElement("div");const b=document.createElement("b");b.textContent=goal.name;
+      const sub=document.createElement("div");sub.className="lbl";sub.textContent=(got?"Earned this week · ":"")+pr.text+(times?` · earned ${times}×`:"");t.append(b,sub);
+      const del=btn("ib","",()=>updateGoals(c,gs=>gs.filter(x=>x.id!==goal.id)),"Delete group badge");del.innerHTML=ICON.del;
+      const bar=document.createElement("div");bar.className="xpbar";bar.innerHTML=`<i style="width:${Math.min(100,pr.pct*100)}%"></i>`;
+      r.append(ic,t,del,bar);goalsBox.append(r);
+    });
+    const f=document.createElement("form");f.className="gform";f.autocomplete="off";
+    f.innerHTML=`<select aria-label="Goal type">${Object.entries(GOAL_TYPES).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join("")}</select>
+      <input type="number" min="1" step="1" value="10" aria-label="Target"><input type="text" maxlength="40" placeholder="Badge name (optional)" aria-label="Badge name"><button class="btn sm" type="submit">Add group badge</button>`;
+    f.onsubmit=e=>{e.preventDefault();const [sel,num,nm]=f.querySelectorAll("select,input");
+      const type=sel.value,target=Math.max(1,parseInt(num.value)||1),u=GOAL_TYPES[type].unit;
+      const name=nm.value.trim()||(type==="together_focus"?`${target} hours together`:type==="everyone_focus"?`Everyone does ${target}h`:`${target} tasks together`);
+      updateGoals(c,gs=>[...gs,{id:"g"+Date.now().toString(36),type,target,name,ic:target+u,earned:{}}]);};
+    card.append(f);
+  });
+}
+function groupsAuth(u){
+  gUser=u||null;$("grpOff").hidden=!!u;$("grpOn").hidden=!u;
+  if(u){$("gName").value=stats.gprefs.name||"";$("gName").placeholder=(u.email||"").split("@")[0]||"Your name";
+    $("gShareTask").checked=!!stats.gprefs.shareTask;$("gShareDis").checked=!!stats.gprefs.shareDis}
+  syncGroupSubs();renderGroups();
+}
+$("gName").addEventListener("change",()=>{stats.gprefs.name=$("gName").value.trim();save();pushPresence(true)});
+$("gShareTask").onchange=()=>{stats.gprefs.shareTask=$("gShareTask").checked;save();pushPresence(true)};
+$("gShareDis").onchange=()=>{stats.gprefs.shareDis=$("gShareDis").checked;save();pushPresence(true)};
+$("gCreate").onsubmit=async e=>{
+  e.preventDefault();if(!gUser)return;
+  const name=$("gNewName").value.trim()||"Focus group";gMsg("Creating your group…");askNotify();
+  for(let tries=0;tries<3;tries++){
+    const c=newCode();
+    try{
+      await fdb.collection("groups").doc(c).set({name,owner:gUser.uid,members:[gUser.uid],createdAt:Date.now(),
+        goals:[{id:"g1",type:"together_focus",target:10,name:"10 hours together",ic:"10h",earned:{}}]});
+      if(!stats.groups.includes(c))stats.groups.push(c);save();$("gNewName").value="";
+      gMsg(`Group created. Share the code ${c} with your friends.`);return;
+    }catch(err){if(tries===2)gMsg("Couldn't create the group. Check your connection and try again.")}
+  }
+};
+$("gJoin").onsubmit=async e=>{
+  e.preventDefault();if(!gUser)return;
+  const c=$("gCode").value.trim().toUpperCase();if(c.length!==6){gMsg("Invite codes have 6 letters and numbers.");return}
+  gMsg("Joining…");askNotify();
+  try{
+    const ref=fdb.collection("groups").doc(c),snap=await ref.get();
+    if(!snap.exists){gMsg("No group with that code. Check it with your friend.");return}
+    if(!(snap.data().members||[]).includes(gUser.uid))await ref.update({members:firebase.firestore.FieldValue.arrayUnion(gUser.uid)});
+    if(!stats.groups.includes(c))stats.groups.push(c);save();$("gCode").value="";
+    gMsg(`You joined ${snap.data().name||"the group"}.`);
+  }catch(err){gMsg("Couldn't join. Check the code and your connection.")}
+};
+
 /* ---------- backup: move your data between devices ---------- */
 $("exportBtn").onclick=()=>{
   const blob=new Blob([JSON.stringify({app:"focus-pebbles",version:1,exportedAt:new Date().toISOString(),tasks,stats},null,2)],{type:"application/json"});
@@ -1389,6 +1648,7 @@ function initAccount(){
     $("acctOut").hidden=!!u;$("acctIn").hidden=!u;acMsg("");
     $("acctMeta").textContent=u?"Signed in":"Sync across your devices";
     if(u){$("acWho").textContent=u.email||u.displayName||"Signed in";startSync(u)}else stopSync();
+    groupsAuth(u);
   });
   $("acctOut").onsubmit=e=>{e.preventDefault();acMsg("Signing in…");fbAuth.signInWithEmailAndPassword($("acEmail").value.trim(),$("acPass").value).catch(authFail)};
   $("acNew").onclick=()=>{acMsg("Creating your account…");fbAuth.createUserWithEmailAndPassword($("acEmail").value.trim(),$("acPass").value).catch(authFail)};
