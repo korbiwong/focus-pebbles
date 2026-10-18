@@ -823,31 +823,31 @@ function drawGift(x,y,c){g.strokeStyle=c;g.lineWidth=1.5;g.strokeRect(x-8,y-14,1
 function drawTrophy(x,y,c){g.strokeStyle=c;g.fillStyle=c;g.lineWidth=1.5;g.beginPath();g.moveTo(x-8,y-22);g.lineTo(x+8,y-22);g.quadraticCurveTo(x+8,y-10,x,y-9);g.quadraticCurveTo(x-8,y-10,x-8,y-22);g.fill();
   g.beginPath();g.moveTo(x-8,y-19);g.arc(x-10,y-16,3,-Math.PI/2,Math.PI/2,true);g.moveTo(x+8,y-19);g.arc(x+10,y-16,3,-Math.PI/2,Math.PI/2);g.stroke();
   g.fillRect(x-1.5,y-9,3,5);g.fillRect(x-6,y-4,12,3)}
-// "Pebble": a round little sprout. Squashes on landing, stretches going up, blinks, smiles (^ ^) while rising.
+// 煤炭屎鬼: a small fuzzy soot ball with big round eyes and twiggy arms and legs.
+// Squashes on landing, stretches going up, blinks, eyes go (^ ^) while rising, arms wave up in the air.
 function drawClimber(x,y,sx,sy,face,ink,body,eye,mood){
-  const now=performance.now(),blink=(now%3600)<120,happy=mood==="up";
-  const S=1.6;   // overall size
-  g.save();g.translate(x,y);g.scale(face*sx*S,sy*S);g.lineWidth=1.5;g.strokeStyle=ink;g.lineCap="round";g.lineJoin="round";
-  // feet
-  g.fillStyle=ink;g.beginPath();g.ellipse(-6,-1.5,4,2.2,0,0,7);g.ellipse(6,-1.5,4,2.2,0,0,7);g.fill();
-  // round body
-  g.beginPath();g.ellipse(0,-16,15,14.5,0,0,7);g.fillStyle=body;g.fill();g.stroke();
-  // lighter tummy
-  g.save();g.globalAlpha=.35;g.fillStyle=eye;g.beginPath();g.ellipse(2,-10,8.5,6.5,0,0,7);g.fill();g.restore();
-  // sprout on top
-  g.beginPath();g.moveTo(0,-30);g.quadraticCurveTo(-1,-35,1,-38);g.stroke();
-  g.beginPath();g.moveTo(1,-37);g.quadraticCurveTo(9,-44,12,-36);g.quadraticCurveTo(6,-33,1,-37);g.fillStyle=body;g.fill();g.stroke();
-  // eyes
-  if(happy){g.beginPath();g.arc(-3,-18,3.2,Math.PI*1.1,Math.PI*1.9);g.moveTo(9.2,-19.5);g.arc(7,-18,3.2,Math.PI*1.1,Math.PI*1.9);g.stroke()}
-  else if(blink){g.beginPath();g.moveTo(-6,-18);g.lineTo(0,-18);g.moveTo(4,-18);g.lineTo(10,-18);g.stroke()}
+  const now=performance.now(),blink=(now%3200)<110,happy=mood==="up",air=mood!=="land";
+  const S=1.05,R=11,cy=-R-4,soot="#141414";   // size, radius, body centre
+  g.save();g.translate(x,y);g.scale(face*sx*S,sy*S);g.lineCap="round";g.lineJoin="round";
+  // twiggy legs and arms
+  g.strokeStyle=soot;g.lineWidth=1.3;g.beginPath();
+  g.moveTo(-4,cy+R-2);g.lineTo(-5,-0.5);g.moveTo(4,cy+R-2);g.lineTo(5,-0.5);
+  const lift=air?-6:3;g.moveTo(-R+1,cy+1);g.lineTo(-R-5,cy+lift);g.moveTo(R-1,cy+1);g.lineTo(R+5,cy+lift);
+  g.stroke();
+  // fuzzy body: a ring of little spikes that shimmer, then the ball
+  g.fillStyle=soot;g.beginPath();
+  const n=34;for(let i=0;i<=n;i++){const a=i/n*Math.PI*2,w=R+2.6+Math.sin(i*7.3+now/90)*0.9+(i%2?1.2:0);
+    const px=Math.cos(a)*(i%2?w:R),py=cy+Math.sin(a)*(i%2?w:R);i?g.lineTo(px,py):g.moveTo(px,py)}
+  g.closePath();g.fill();
+  g.save();g.globalAlpha=.25;g.strokeStyle=ink;g.lineWidth=.8;g.stroke();g.restore();   // faint rim so it shows on dark backgrounds
+  // eyes: big white circles with small black pupils
+  const ex=[-4,4.5],ey=cy-1;
+  if(happy){g.strokeStyle="#fff";g.lineWidth=1.6;g.beginPath();ex.forEach(e=>{g.moveTo(e-3,ey+1);g.quadraticCurveTo(e,ey-3,e+3,ey+1)});g.stroke()}
+  else if(blink){g.strokeStyle="#fff";g.lineWidth=1.4;g.beginPath();ex.forEach(e=>{g.moveTo(e-3,ey);g.lineTo(e+3,ey)});g.stroke()}
   else{
-    g.fillStyle=ink;g.beginPath();g.ellipse(-3,-18,3.1,3.8,0,0,7);g.ellipse(7,-18,3.1,3.8,0,0,7);g.fill();
-    g.fillStyle=eye;g.beginPath();g.arc(-2,-19.5,1.2,0,7);g.arc(8,-19.5,1.2,0,7);g.fill();   // sparkle
+    g.fillStyle="#fff";g.beginPath();ex.forEach(e=>{g.moveTo(e+3.6,ey);g.arc(e,ey,3.6,0,7)});g.fill();
+    g.fillStyle=soot;g.beginPath();ex.forEach(e=>{g.moveTo(e+2.6,ey+.3);g.arc(e+1.1,ey+.3,1.5,0,7)});g.fill();
   }
-  // blush
-  g.fillStyle="rgba(255,120,150,.55)";g.beginPath();g.ellipse(-8,-12.5,3.2,2,0,0,7);g.ellipse(12,-12.5,3,2,0,0,7);g.fill();
-  // mouth
-  g.beginPath();if(happy||mood==="land"){g.arc(2,-12.5,2.6,0.1*Math.PI,0.9*Math.PI)}else{g.moveTo(0.5,-12);g.quadraticCurveTo(2,-10.8,3.5,-12)}g.stroke();
   g.restore();
 }
 let puffs=[];   // little dust puffs when it lands
@@ -892,7 +892,7 @@ function drawClimb(now){
   // squash & stretch: squish right after landing, stretch tall while shooting up
   const since=now-cl.land,sqk=since<140?Math.sin(since/140*Math.PI):0,rising=cl.vy<-vy0*.45;
   const sx=1+.22*sqk-(rising?.07:0),sy=1-.25*sqk+(rising?.1:0);
-  drawPuffs(now,muted);
+  drawPuffs(now,"rgba(40,40,40,.7)");   // soot puffs
   drawClimber(cl.x,cl.y,sx,sy,cl.face,ink,cl.earned>=cl.N&&cl.N?gold:good,sheet,since<220?"land":rising?"up":"");
   climbRaf=still?0:requestAnimationFrame(drawClimb);
 }
