@@ -1,15 +1,10 @@
-// Paste your Firebase web app config here to turn on accounts and sync across devices.
-// Firebase → Project settings → Your apps → Web app → "SDK setup and configuration" → Config.
+// Firebase web app config for accounts and sync across devices.
 // These values are not secret; your data is protected by the rules in firestore.rules.
-// Leave it as null to keep the app on-device only.
-window.FIREBASE_CONFIG = null;
-/* Example of what it looks like when filled in:
 window.FIREBASE_CONFIG = {
-  apiKey: "AIza...",
-  authDomain: "focus-pebbles-xxxx.firebaseapp.com",
-  projectId: "focus-pebbles-xxxx",
-  storageBucket: "focus-pebbles-xxxx.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abc123"
+  apiKey: "AIzaSyBCcDdXy7Pz-jk-GNJQoCz9eF4l8JDKPE0",
+  authDomain: "focus-pebbles.firebaseapp.com",
+  projectId: "focus-pebbles",
+  storageBucket: "focus-pebbles.firebasestorage.app",
+  messagingSenderId: "1048621800910",
+  appId: "1:1048621800910:web:6575ac56d1cf6c20921f9f"
 };
-*/
