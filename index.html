@@ -199,6 +199,15 @@ details.inner>summary{cursor:pointer}
 [hidden]{display:none!important}
 .next-task{font-family:var(--f-display);font-weight:700;font-size:clamp(1.8rem,5vw,2.4rem);line-height:1.1;margin-top:10px;overflow-wrap:anywhere}
 .quick{display:flex;gap:10px;flex-wrap:wrap}
+#todaySec{border-width:2px}
+.today-add #todayText{flex:1 1 240px}
+.today-add .duefield input{width:64px}
+.today-bar{margin:0 0 12px;height:10px}
+.today-bar i{background:var(--good)}
+.est{font-family:var(--f-mono);font-size:.78rem;padding:2px 8px;border:1px solid var(--rule);border-radius:2px;color:var(--ink-2);white-space:nowrap}
+.trow .carry{font-family:var(--f-mono);font-size:.72rem;color:var(--warn)}
+.tedit input[type=number]{width:70px}
+.ib.today{font-family:var(--f-mono);font-size:.7rem;font-weight:600;width:auto;padding:0 8px}
 .quick select{flex:1 1 260px;min-width:0;width:100%;max-width:100%;font-family:var(--f-display);font-weight:700;font-size:clamp(1.3rem,4vw,1.7rem);color:var(--ink);background:var(--paper);border:1.5px solid var(--ink);border-radius:2px;padding:8px 10px}
 .quick .btn{font-size:1.15rem;padding:10px 24px}
 .addrow{display:flex;gap:8px;margin-bottom:14px}
@@ -224,7 +233,8 @@ details.inner>summary{cursor:pointer}
 @media (max-width:600px){
   .trow{flex-wrap:wrap}
   .trow .tmain{flex:1 1 calc(100% - 110px)}
-  .trow .ib.edit{margin-left:auto}
+  .trow .ib.edit,.trow .ib.today{margin-left:auto}
+  .trow .ib.today+.ib.edit{margin-left:0}
   .trow.editing .tedit{flex-basis:100%}
   .addrow .duefield{flex:1 1 auto}
   .addrow .btn{flex:1 1 100%}
@@ -383,6 +393,19 @@ details.inner>summary{cursor:pointer}
     <div><div class="lbl">Today's progress</div><div class="big" style="font-size:1.45rem" id="tbLevel">Getting started</div>
       <div class="xpbar"><i id="tbBar"></i></div><div class="note mono" id="tbProg">0 / 0 tasks</div></div>
   </header>
+
+  <section class="sheet sec" id="todaySec">
+    <div class="sec-head"><h2>Today</h2><div class="lbl" id="todayMeta">Your list for today</div></div>
+    <form class="addrow today-add" id="todayForm" autocomplete="off">
+      <input id="todayText" maxlength="80" placeholder="Add something to do today…" aria-label="To-do for today">
+      <label class="duefield"><span class="lbl">Est.</span><input type="number" id="todayEst" min="1" max="600" step="1" inputmode="numeric" placeholder="30" aria-label="Estimated minutes"><span class="lbl">min</span></label>
+      <button class="btn" type="submit">Add</button>
+    </form>
+    <div class="xpbar today-bar"><i id="todayBar"></i></div>
+    <ul class="tasks" id="todayList"></ul>
+    <div class="empty" id="todayEmpty">Nothing planned yet. Add what you want to get done today, with a rough time for each.</div>
+    <div class="meta-row" style="margin-top:8px"><button class="btn ghost sm" id="todayClear" hidden>Remove ticked items</button></div>
+  </section>
 
   <section class="sheet sec" id="nextSec">
     <div class="sec-head"><h2>Start focusing</h2><div class="lbl">Pick one, then go</div></div>
@@ -693,6 +716,7 @@ function fill(){
   stats.distract=stats.distract||{apps:["YouTube","Instagram","TikTok","WhatsApp","Messages","Other"],log:[]};
   stats.distract.apps=stats.distract.apps||[];stats.distract.log=stats.distract.log||[];
   stats.groups=stats.groups||[];stats.gprefs=stats.gprefs||{name:"",shareTask:false,shareDis:false};
+  stats.daily=stats.daily||{date:"",items:[]};stats.daily.items=stats.daily.items||[];
 }
 fill();
 function loadLocal(){try{return tidy(JSON.parse(localStorage.getItem("pebbles")||"[]"))}catch(e){return[]}}
@@ -814,7 +838,7 @@ function renderStats(){
   if(fresh)setTimeout(save,0);
   const count=earnedCount();
   $("badgeMeta").textContent=count+" of "+stats.badges.length+" earned";
-  renderBadges();renderRewards(count);climbSetup(count);renderRevision();renderDistract();renderQuick();syncGroupSubs();
+  renderBadges();renderRewards(count);climbSetup(count);renderRevision();renderDistract();renderToday();renderQuick();syncGroupSubs();
   if(lastCount!==null&&count>lastCount){
     const hit=rewardsSorted().find(r=>r.at===count&&!r.claimedAt);
     if(hit)setTimeout(()=>{stamp("Reward unlocked",hit.text||"Choose it below","gold",3000);chime([523,659,784,1047,1319])},900);
@@ -1121,6 +1145,7 @@ function render(){
       <button class="box" aria-label="${t.done?"Mark not done":"Mark done"}">${t.done?"✓":""}</button>
       <span class="qtag" style="color:var(${t.color})">${tag(t)}</span>
       <span class="tmain"><span class="ttext"></span><span class="tmeta"></span></span>
+      ${t.done?"":`<button class="ib today" aria-label="Add to today's list" title="Add to today's list">+Today</button>`}
       <button class="ib edit" aria-label="Edit name and deadline" title="Edit name and deadline">${ICON.edit}</button>
       <button class="btn sm go">Focus</button>
       <button class="ib del${sure?" arm":""}" aria-label="${sure?"Tap again to delete":"Delete"}" title="${sure?"Tap again to delete":"Delete"}">${sure?ICON.sure:ICON.del}</button>`;
@@ -1141,6 +1166,7 @@ function render(){
     }
     li.querySelector(".box").onclick=()=>toggle(t);
     li.querySelector(".edit").onclick=()=>{editingTask=t.id;editingDue=null;render()};
+    li.querySelector(".today")?.addEventListener("click",()=>addToToday(t));
     li.querySelector(".go").onclick=()=>openFocus(t);
     li.querySelector(".del").onclick=()=>{
       if(armed===t.id){tasks=tasks.filter(x=>x!==t);armed=null;save()}
@@ -1308,8 +1334,8 @@ function drawTime(){
   ci?.parentElement.classList.toggle("on",!preset);
 }
 function openFocus(t){
-  flushAway();ft=t;stop();total=(stats.focusMin||25)*60;left=total;$("nudge").hidden=true;
-  $("fText").textContent=t.text;$("fTag").textContent=t.mod?"Revision · counts toward this week's goal":tag(t);$("fTag").style.color=`var(${t.color})`;
+  flushAway();ft=t;stop();total=(t.est||stats.focusMin||25)*60;left=total;$("nudge").hidden=true;   // a Today item starts with its own estimate
+  $("fText").textContent=t.text;$("fTag").textContent=t.mod?"Revision · counts toward this week's goal":t.daily?"Today"+(t.est?" · est "+fmtEst(t.est):""):tag(t);$("fTag").style.color=`var(${t.color})`;
   $("rule").textContent=myDoc?"Stay on this page. If you leave, your group will see.":"Stay on this page. No YouTube.";
   $("focus").hidden=false;drawTime();
 }
@@ -1337,7 +1363,9 @@ function stop(){
 }
 $("fPlay").onclick=()=>timer?stop():start();
 $("fBack").onclick=()=>{stop();flushAway();$("focus").hidden=true};
-$("fDone").onclick=()=>{stop();flushAway();$("focus").hidden=true;if(ft&&!ft.mod&&!ft.done)toggle(ft)};
+$("fDone").onclick=()=>{stop();flushAway();$("focus").hidden=true;
+  if(ft?.daily){const it=stats.daily.items.find(i=>i.id===ft.daily);if(it&&!it.done)tickToday(it)}
+  else if(ft&&!ft.mod&&!ft.done)toggle(ft)};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("focus").hidden)$("fBack").click()});
 
 /* leaving the page while the timer runs → your group sees it, and you get a nudge when you come back */
@@ -1358,6 +1386,89 @@ document.addEventListener("visibilitychange",()=>{
   left=Math.max(0,Math.round((endAt-now)/1000));drawTime();
 });
 
+/* ---------- Today: a daily to-do list with estimated minutes. Unfinished items carry over to the next day. ---------- */
+let editingToday=null,todayArm=null;
+const fmtEst=m=>m>=60?Math.floor(m/60)+"h"+(m%60?" "+(m%60)+"m":""):m+" min";
+const newId=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+function rollDaily(){
+  const k=dkey();if(stats.daily.date===k)return false;
+  stats.daily={date:k,items:stats.daily.items.filter(i=>!i.done).map(i=>({...i,carried:true}))};return true;
+}
+function todayFocus(it){return{id:"d-"+it.id,text:it.text,color:"--t-geg",daily:it.id,est:it.est||0}}
+function renderToday(){
+  if(rollDaily())setTimeout(save,0);
+  const items=stats.daily.items;let synced=false;
+  items.forEach(it=>{if(it.taskId){const t=tasks.find(x=>x.id===it.taskId);if(t&&it.done!==t.done){it.done=t.done;it.doneAt=t.doneAt;synced=true}}});   // ticked in Tasks = ticked here
+  if(synced)setTimeout(save,0);
+  const open=items.filter(i=>!i.done),done=items.filter(i=>i.done);
+  const plan=items.reduce((s,i)=>s+(i.est||0),0),leftMin=open.reduce((s,i)=>s+(i.est||0),0);
+  $("todayMeta").textContent=items.length?`${done.length} of ${items.length} done`+(plan?` · ${fmtEst(plan)} planned · ${fmtEst(leftMin)} left`:""):
+    new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"short"});
+  $("todayBar").style.width=items.length?(done.length/items.length*100)+"%":"0";
+  $("todayEmpty").hidden=items.length>0;$("todayClear").hidden=!done.length;
+  const list=$("todayList");if(typingIn(list))return;list.innerHTML="";
+  [...open,...done].forEach(it=>{
+    const li=document.createElement("li");li.className="trow"+(it.done?" done":"");
+    if(editingToday===it.id){   // edit name and estimate in place
+      li.classList.add("editing");const ed=document.createElement("div");ed.className="tedit";
+      const nm=document.createElement("input");nm.className="rin";nm.id="tname-"+it.id;nm.maxLength=80;nm.value=it.text;nm.setAttribute("aria-label","To-do name");
+      const est=document.createElement("input");est.type="number";est.min=1;est.max=600;est.className="rin";est.id="test-"+it.id;est.value=it.est||"";est.placeholder="30";est.setAttribute("aria-label","Estimated minutes");
+      const lab=document.createElement("span");lab.className="lbl";lab.textContent="min";
+      const ok=()=>{it.text=nm.value.trim()||it.text;it.est=Math.max(0,Math.round(+est.value)||0);
+        const t=it.taskId&&tasks.find(x=>x.id===it.taskId);if(t)t.text=it.text;editingToday=null;save();render()};
+      const cancel=()=>{editingToday=null;renderToday()};
+      [nm,est].forEach(i=>i.addEventListener("keydown",e=>{if(e.key==="Enter")ok();if(e.key==="Escape")cancel()}));
+      ed.append(nm,est,lab,btn("btn sm","Save",ok),btn("btn ghost sm","Cancel",cancel));li.append(ed);list.append(li);setTimeout(()=>nm.focus(),0);return;
+    }
+    const sure=todayArm===it.id;
+    li.innerHTML=`<button class="box" aria-label="${it.done?"Mark not done":"Mark done"}">${it.done?"✓":""}</button>
+      <span class="tmain"><span class="ttext"></span><span class="tmeta"></span></span>
+      <button class="ib edit" aria-label="Edit name and estimate" title="Edit name and estimate">${ICON.edit}</button>
+      <button class="btn sm go">Focus</button>
+      <button class="ib del${sure?" arm":""}" aria-label="${sure?"Tap again to remove":"Remove"}" title="${sure?"Tap again to remove":"Remove"}">${sure?ICON.sure:ICON.del}</button>`;
+    li.querySelector(".ttext").textContent=it.text;
+    const meta=li.querySelector(".tmeta");
+    if(it.est){const c=document.createElement("span");c.className="est";c.textContent="est "+fmtEst(it.est);meta.append(c)}
+    if(it.done&&it.doneAt){const c=document.createElement("span");c.className="chip done mono";c.textContent="Done "+hhmm(it.doneAt);meta.append(c)}
+    if(it.carried&&!it.done){const c=document.createElement("span");c.className="carry";c.textContent="from yesterday";meta.append(c)}
+    if(it.taskId){const c=document.createElement("span");c.className="lbl";c.textContent="in Tasks";meta.append(c)}
+    li.querySelector(".box").onclick=()=>tickToday(it);
+    li.querySelector(".edit").onclick=()=>{editingToday=it.id;renderToday()};
+    li.querySelector(".go").onclick=()=>openFocus(todayFocus(it));
+    li.querySelector(".del").onclick=()=>{
+      if(todayArm===it.id){stats.daily.items=stats.daily.items.filter(x=>x!==it);todayArm=null;save();renderToday();renderQuick()}
+      else{todayArm=it.id;renderToday();setTimeout(()=>{if(todayArm===it.id){todayArm=null;renderToday()}},2500)}};
+    list.append(li);
+  });
+}
+function tickToday(it){
+  const d=day(),t=it.taskId&&tasks.find(x=>x.id===it.taskId);
+  if(!it.done){
+    it.done=true;it.doneAt=Date.now();
+    if(t){if(!t.done)toggle(t);else{save();render()}return}   // linked task: Tasks handles stats and the stamp
+    d.done++;d.items.push({text:it.text,at:it.doneAt,id:"d-"+it.id});prune();save();render();
+    const items=stats.daily.items;
+    if(items.every(x=>x.done)){stamp("Today done",`${items.length} things · ${fmtEst(items.reduce((s,i)=>s+(i.est||0),0))}`,"",2600);chime([523,659,784,1047,1319])}
+    else{stamp("Done",it.text.slice(0,22),"green",900);chime([587,740,880]);toast(`${PRAISE[Math.min(d.done-1,PRAISE.length-1)]} ${d.done} done today.`,true)}
+  }else{
+    it.done=false;it.doneAt=0;
+    if(t){if(t.done)toggle(t);else{save();render()}return}
+    d.done=Math.max(0,d.done-1);d.items=d.items.filter(x=>x.id!=="d-"+it.id);save();render();
+  }
+}
+function addToToday(t){   // from the Tasks list
+  rollDaily();
+  if(stats.daily.items.some(i=>i.taskId===t.id&&!i.done)){toast("Already on today's list.",true);return}
+  stats.daily.items.push({id:newId(),text:t.text,est:0,done:false,taskId:t.id});save();render();
+  toast("Added to Today. Tap the pencil there to set a time estimate.",true);
+}
+$("todayForm").onsubmit=e=>{
+  e.preventDefault();const text=$("todayText").value.trim();if(!text){$("todayText").focus();return}
+  rollDaily();stats.daily.items.push({id:newId(),text,est:Math.max(0,Math.round(+$("todayEst").value)||0),done:false});
+  $("todayText").value="";$("todayEst").value="";save();render();$("todayText").focus();
+};
+$("todayClear").onclick=()=>{stats.daily.items=stats.daily.items.filter(i=>!i.done);save();render()};
+
 /* ---------- start focusing: pick a task or module at the top and go ---------- */
 let quickSel=null;   // remembered choice, e.g. "t:abc" or "m:steel"
 function quickItems(){
@@ -1368,6 +1479,7 @@ function renderQuick(){
   const sel=$("quickPick");if(document.activeElement===sel)return;
   const {open,mods}=quickItems();sel.innerHTML="";
   const grp=(label,items,fn)=>{if(!items.length)return;const g=document.createElement("optgroup");g.label=label;items.forEach(x=>{const o=document.createElement("option");[o.value,o.textContent]=fn(x);g.append(o)});sel.append(g)};
+  grp("Today",stats.daily.date===dkey()?stats.daily.items.filter(i=>!i.done):[],i=>["d:"+i.id,i.text+(i.est?"  ·  est "+fmtEst(i.est):"")]);
   grp("Tasks",open,t=>["t:"+t.id,t.text+(t.due?"  ·  "+dueInfo(t).txt:"")]);
   grp("Revision",mods,m=>["m:"+m.id,"Revise: "+m.name]);
   if(!sel.options.length){const o=document.createElement("option");o.textContent="Add a task below first";o.value="";sel.append(o)}
@@ -1376,6 +1488,7 @@ function renderQuick(){
 }
 function quickTarget(){
   const v=$("quickPick").value||"";
+  if(v.startsWith("d:")){const it=stats.daily.items.find(i=>i.id===v.slice(2));return it&&todayFocus(it)}
   if(v.startsWith("t:"))return tasks.find(t=>t.id===v.slice(2));
   if(v.startsWith("m:")){const m=stats.modules.find(x=>x.id===v.slice(2));return m&&{id:"mod-"+m.id,text:m.name,color:m.color,mod:m.id}}
   return null;
@@ -1385,6 +1498,7 @@ function showQuick(){
   if(!t){tg.hidden=true;$("nextGo").disabled=true;return}
   $("nextGo").disabled=false;tg.hidden=false;tg.style.color=`var(${t.color})`;
   if(t.mod){const s=(stats.rev[wkKey()]?.s?.[t.mod])||0,m=stats.modules.find(x=>x.id===t.mod);tg.textContent=`Revision · ${fmtMin(s)} of ${fmtMin(goalOf(m)*60)} this week`}
+  else if(t.daily){tg.textContent="Today"+(t.est?` · timer set to your estimate, ${fmtEst(t.est)}`:"")}
   else{const bits=[tag(t)];if(t.due)bits.push(dueInfo(t).txt);if(PRI[t.pri])bits.push(PRI[t.pri].txt+" importance");tg.textContent=bits.join(" · ")}
 }
 $("quickPick").onchange=()=>{quickSel=$("quickPick").value;showQuick()};
