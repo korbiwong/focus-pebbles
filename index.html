@@ -198,7 +198,6 @@ details.inner>summary{cursor:pointer}
 .wrap{font-size:1.06rem}
 [hidden]{display:none!important}
 .next-task{font-family:var(--f-display);font-weight:700;font-size:clamp(1.8rem,5vw,2.4rem);line-height:1.1;margin-top:10px;overflow-wrap:anywhere}
-.quick{display:flex;gap:10px;flex-wrap:wrap}
 #todaySec{border-width:2px}
 .today-add #todayText{flex:1 1 240px}
 .today-add .duefield input{width:64px}
@@ -212,8 +211,6 @@ details.inner>summary{cursor:pointer}
 .trow .carry{font-family:var(--f-mono);font-size:.72rem;color:var(--warn)}
 .tedit input[type=number]{width:70px}
 .ib.today{font-family:var(--f-mono);font-size:.7rem;font-weight:600;width:auto;padding:0 8px}
-.quick select{flex:1 1 260px;min-width:0;width:100%;max-width:100%;font-family:var(--f-display);font-weight:700;font-size:clamp(1.3rem,4vw,1.7rem);color:var(--ink);background:var(--paper);border:1.5px solid var(--ink);border-radius:2px;padding:8px 10px}
-.quick .btn{font-size:1.15rem;padding:10px 24px}
 .addrow{display:flex;gap:8px;margin-bottom:14px}
 .addrow input{flex:1;min-width:0;font:inherit;font-size:1.1rem;color:var(--ink);background:var(--paper);border:1.5px solid var(--ink);border-radius:2px;padding:10px 12px}
 .addrow input::placeholder{color:var(--muted)}
@@ -414,15 +411,6 @@ details.inner>summary{cursor:pointer}
     <ul class="tasks" id="todayList"></ul>
     <div class="empty" id="todayEmpty">Nothing planned yet. Add what you want to get done today, with a rough time for each.</div>
     <div class="meta-row" style="margin-top:8px"><button class="btn ghost sm" id="todayClear" hidden>Remove ticked items</button></div>
-  </section>
-
-  <section class="sheet sec" id="nextSec">
-    <div class="sec-head"><h2>Start focusing</h2><div class="lbl">Pick one, then go</div></div>
-    <div class="quick">
-      <select id="quickPick" aria-label="What do you want to focus on?"></select>
-      <button class="btn" id="nextGo">Focus now</button>
-    </div>
-    <div class="meta-row" style="margin-top:8px"><span class="qtag" id="nextTag"></span></div>
   </section>
 
   <div class="acct-overlay" id="acctOverlay" hidden>
@@ -847,7 +835,7 @@ function renderStats(){
   if(fresh)setTimeout(save,0);
   const count=earnedCount();
   $("badgeMeta").textContent=count+" of "+stats.badges.length+" earned";
-  renderBadges();renderRewards(count);climbSetup(count);renderRevision();renderDistract();renderToday();renderQuick();syncGroupSubs();
+  renderBadges();renderRewards(count);climbSetup(count);renderRevision();renderDistract();renderToday();syncGroupSubs();
   if(lastCount!==null&&count>lastCount){
     const hit=rewardsSorted().find(r=>r.at===count&&!r.claimedAt);
     if(hit)setTimeout(()=>{stamp("Reward unlocked",hit.text||"Choose it below","gold",3000);chime([523,659,784,1047,1319])},900);
@@ -1460,7 +1448,7 @@ function renderToday(){
     li.querySelector(".edit").onclick=()=>{editingToday=it.id;renderToday()};
     li.querySelector(".go").onclick=()=>openFocus(todayFocus(it));
     li.querySelector(".del").onclick=()=>{
-      if(todayArm===it.id){stats.daily.items=stats.daily.items.filter(x=>x!==it);todayArm=null;save();renderToday();renderQuick()}
+      if(todayArm===it.id){stats.daily.items=stats.daily.items.filter(x=>x!==it);todayArm=null;save();renderToday()}
       else{todayArm=it.id;renderToday();setTimeout(()=>{if(todayArm===it.id){todayArm=null;renderToday()}},2500)}};
     list.append(li);
   });
@@ -1504,40 +1492,6 @@ $("todayRevForm").onsubmit=e=>{
 };
 $("todayClear").onclick=()=>{stats.daily.items=stats.daily.items.filter(i=>!i.done);save();render()};
 
-/* ---------- start focusing: pick a task or module at the top and go ---------- */
-let quickSel=null;   // remembered choice, e.g. "t:abc" or "m:steel"
-function quickItems(){
-  const open=sortOpen(tasks.filter(t=>!t.done));
-  return {open,mods:stats.modules};
-}
-function renderQuick(){
-  const sel=$("quickPick");if(document.activeElement===sel)return;
-  const {open,mods}=quickItems();sel.innerHTML="";
-  const grp=(label,items,fn)=>{if(!items.length)return;const g=document.createElement("optgroup");g.label=label;items.forEach(x=>{const o=document.createElement("option");[o.value,o.textContent]=fn(x);g.append(o)});sel.append(g)};
-  grp("Today",stats.daily.date===dkey()?stats.daily.items.filter(i=>!i.done):[],i=>["d:"+i.id,i.text+(i.est?"  ·  est "+fmtEst(i.est):"")]);
-  grp("Tasks",open,t=>["t:"+t.id,t.text+(t.due?"  ·  "+dueInfo(t).txt:"")]);
-  grp("Revision",mods,m=>["m:"+m.id,"Revise: "+m.name]);
-  if(!sel.options.length){const o=document.createElement("option");o.textContent="Add a task below first";o.value="";sel.append(o)}
-  const want=quickSel&&[...sel.options].some(o=>o.value===quickSel)?quickSel:sel.options[0].value;
-  sel.value=want;showQuick();   // your top task, unless you picked something else
-}
-function quickTarget(){
-  const v=$("quickPick").value||"";
-  if(v.startsWith("d:")){const it=stats.daily.items.find(i=>i.id===v.slice(2));return it&&todayFocus(it)}
-  if(v.startsWith("t:"))return tasks.find(t=>t.id===v.slice(2));
-  if(v.startsWith("m:")){const m=stats.modules.find(x=>x.id===v.slice(2));return m&&{id:"mod-"+m.id,text:m.name,color:m.color,mod:m.id}}
-  return null;
-}
-function showQuick(){
-  const t=quickTarget(),tg=$("nextTag");
-  if(!t){tg.hidden=true;$("nextGo").disabled=true;return}
-  $("nextGo").disabled=false;tg.hidden=false;tg.style.color=`var(${t.color})`;
-  if(t.mod){const s=(stats.rev[wkKey()]?.s?.[t.mod])||0,m=stats.modules.find(x=>x.id===t.mod);tg.textContent=`Revision · ${fmtMin(s)} of ${fmtMin(goalOf(m)*60)} this week`}
-  else if(t.daily){tg.textContent="Today"+(t.est?` · timer set to your estimate, ${fmtEst(t.est)}`:"")}
-  else{const bits=[tag(t)];if(t.due)bits.push(dueInfo(t).txt);if(PRI[t.pri])bits.push(PRI[t.pri].txt+" importance");tg.textContent=bits.join(" · ")}
-}
-$("quickPick").onchange=()=>{quickSel=$("quickPick").value;showQuick()};
-$("nextGo").onclick=()=>{const t=quickTarget();if(t){openFocus(t);start()}};   // straight into the timer
 
 /* "Leave this page?" warning while a focus session is running (works when closing the tab or window) */
 window.addEventListener("beforeunload",e=>{if(timer){e.preventDefault();e.returnValue=""}});
