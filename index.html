@@ -202,6 +202,10 @@ details.inner>summary{cursor:pointer}
 #todaySec{border-width:2px}
 .today-add #todayText{flex:1 1 240px}
 .today-add .duefield input{width:64px}
+.today-rev{margin-top:-6px}
+.today-rev .rev-pick{flex:1 1 240px;min-width:0}
+.today-rev select{flex:1;min-width:0;width:100%;font:inherit;font-weight:600;color:var(--ink);background:transparent;border:0;padding:8px 0}
+.revchip{font-family:var(--f-mono);font-size:.72rem;padding:2px 7px;border:1px solid currentColor;border-radius:2px;white-space:nowrap}
 .today-bar{margin:0 0 12px;height:10px}
 .today-bar i{background:var(--good)}
 .est{font-family:var(--f-mono);font-size:.78rem;padding:2px 8px;border:1px solid var(--rule);border-radius:2px;color:var(--ink-2);white-space:nowrap}
@@ -400,6 +404,11 @@ details.inner>summary{cursor:pointer}
       <input id="todayText" maxlength="80" placeholder="Add something to do today…" aria-label="To-do for today">
       <label class="duefield"><span class="lbl">Est.</span><input type="number" id="todayEst" min="1" max="600" step="1" inputmode="numeric" placeholder="30" aria-label="Estimated minutes"><span class="lbl">min</span></label>
       <button class="btn" type="submit">Add</button>
+    </form>
+    <form class="addrow today-add today-rev" id="todayRevForm" autocomplete="off">
+      <label class="duefield rev-pick"><span class="lbl">Revise</span><select id="todayRevMod" aria-label="Module to revise"></select></label>
+      <label class="duefield"><span class="lbl">For</span><input type="number" id="todayRevMin" min="5" max="600" step="1" inputmode="numeric" placeholder="45" aria-label="Minutes"><span class="lbl">min</span></label>
+      <button class="btn ghost" type="submit">Add revision</button>
     </form>
     <div class="xpbar today-bar"><i id="todayBar"></i></div>
     <ul class="tasks" id="todayList"></ul>
@@ -1364,7 +1373,7 @@ function stop(){
 $("fPlay").onclick=()=>timer?stop():start();
 $("fBack").onclick=()=>{stop();flushAway();$("focus").hidden=true};
 $("fDone").onclick=()=>{stop();flushAway();$("focus").hidden=true;
-  if(ft?.daily){const it=stats.daily.items.find(i=>i.id===ft.daily);if(it&&!it.done)tickToday(it)}
+  if(ft?.daily){const it=stats.daily.items.find(i=>i.id===ft.daily);if(it&&!it.done)tickToday(it,true)}
   else if(ft&&!ft.mod&&!ft.done)toggle(ft)};
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("focus").hidden)$("fBack").click()});
 
@@ -1394,7 +1403,19 @@ function rollDaily(){
   const k=dkey();if(stats.daily.date===k)return false;
   stats.daily={date:k,items:stats.daily.items.filter(i=>!i.done).map(i=>({...i,carried:true}))};return true;
 }
-function todayFocus(it){return{id:"d-"+it.id,text:it.text,color:"--t-geg",daily:it.id,est:it.est||0}}
+function todayFocus(it){   // a revision item also counts its focus time toward that module's weekly goal
+  const m=it.mod&&stats.modules.find(x=>x.id===it.mod);
+  return{id:"d-"+it.id,text:m?m.name:it.text,color:m?m.color:"--t-geg",daily:it.id,est:it.est||0,mod:m?m.id:undefined};
+}
+const revLeft=m=>Math.max(0,goalOf(m)*60-((stats.rev[wkKey()]?.s?.[m.id])||0));   // seconds still to do this week
+function renderRevPick(){
+  const sel=$("todayRevMod");if(document.activeElement===sel)return;
+  const keep=sel.value;sel.innerHTML="";
+  stats.modules.forEach(m=>{const o=document.createElement("option");o.value=m.id;const l=revLeft(m);
+    o.textContent=m.name+(goalOf(m)?(l?`  ·  ${fmtMin(l)} to go this week`:"  ·  goal met ✓"):"");sel.append(o)});
+  if(!stats.modules.length){const o=document.createElement("option");o.value="";o.textContent="Add modules in Weekly revision first";sel.append(o)}
+  if([...sel.options].some(o=>o.value===keep))sel.value=keep;
+}
 function renderToday(){
   if(rollDaily())setTimeout(save,0);
   const items=stats.daily.items;let synced=false;
@@ -1406,6 +1427,7 @@ function renderToday(){
     new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"short"});
   $("todayBar").style.width=items.length?(done.length/items.length*100)+"%":"0";
   $("todayEmpty").hidden=items.length>0;$("todayClear").hidden=!done.length;
+  renderRevPick();
   const list=$("todayList");if(typingIn(list))return;list.innerHTML="";
   [...open,...done].forEach(it=>{
     const li=document.createElement("li");li.className="trow"+(it.done?" done":"");
@@ -1428,7 +1450,9 @@ function renderToday(){
       <button class="ib del${sure?" arm":""}" aria-label="${sure?"Tap again to remove":"Remove"}" title="${sure?"Tap again to remove":"Remove"}">${sure?ICON.sure:ICON.del}</button>`;
     li.querySelector(".ttext").textContent=it.text;
     const meta=li.querySelector(".tmeta");
-    if(it.est){const c=document.createElement("span");c.className="est";c.textContent="est "+fmtEst(it.est);meta.append(c)}
+    const mod=it.mod&&stats.modules.find(x=>x.id===it.mod);
+    if(mod){const c=document.createElement("span");c.className="revchip";c.style.color=`var(${mod.color})`;c.textContent="Weekly revision";meta.append(c)}
+    if(it.est){const c=document.createElement("span");c.className="est";c.textContent=(mod?"":"est ")+fmtEst(it.est);meta.append(c)}
     if(it.done&&it.doneAt){const c=document.createElement("span");c.className="chip done mono";c.textContent="Done "+hhmm(it.doneAt);meta.append(c)}
     if(it.carried&&!it.done){const c=document.createElement("span");c.className="carry";c.textContent="from yesterday";meta.append(c)}
     if(it.taskId){const c=document.createElement("span");c.className="lbl";c.textContent="in Tasks";meta.append(c)}
@@ -1441,8 +1465,13 @@ function renderToday(){
     list.append(li);
   });
 }
-function tickToday(it){
+function tickToday(it,viaFocus){
   const d=day(),t=it.taskId&&tasks.find(x=>x.id===it.taskId);
+  // revision ticked by hand: add its minutes to the module's week (a focus session already counted its own time)
+  if(it.mod){
+    if(!it.done&&!viaFocus&&it.est){it.revAdded=it.est*60;addRev(it.mod,it.revAdded)}
+    else if(it.done&&it.revAdded){addRev(it.mod,-it.revAdded);it.revAdded=0}
+  }
   if(!it.done){
     it.done=true;it.doneAt=Date.now();
     if(t){if(!t.done)toggle(t);else{save();render()}return}   // linked task: Tasks handles stats and the stamp
@@ -1466,6 +1495,12 @@ $("todayForm").onsubmit=e=>{
   e.preventDefault();const text=$("todayText").value.trim();if(!text){$("todayText").focus();return}
   rollDaily();stats.daily.items.push({id:newId(),text,est:Math.max(0,Math.round(+$("todayEst").value)||0),done:false});
   $("todayText").value="";$("todayEst").value="";save();render();$("todayText").focus();
+};
+$("todayRevForm").onsubmit=e=>{
+  e.preventDefault();const m=stats.modules.find(x=>x.id===$("todayRevMod").value);if(!m)return;
+  const l=Math.round(revLeft(m)/60),min=Math.max(5,Math.round(+$("todayRevMin").value)||Math.min(60,l||45));   // no number typed: up to an hour of what's left
+  rollDaily();stats.daily.items.push({id:newId(),text:"Revise "+m.name,est:min,done:false,mod:m.id});
+  $("todayRevMin").value="";save();render();
 };
 $("todayClear").onclick=()=>{stats.daily.items=stats.daily.items.filter(i=>!i.done);save();render()};
 
