@@ -78,6 +78,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 .acct-overlay{position:fixed;inset:0;z-index:30;background:rgba(14,24,36,.45);display:flex;align-items:flex-start;justify-content:center;overflow:auto;
   padding:calc(24px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) 24px max(16px,env(safe-area-inset-left,0px))}
 .acct-overlay #acctSec{width:min(560px,100%);box-shadow:0 18px 50px rgba(0,0,0,.25)}
+.acct-backup{margin-top:16px;padding-top:14px;border-top:1px solid var(--rule);display:grid;gap:6px}
 .tb>div:first-child{border-left:0}
 .tb h1{font-size:2.3rem;text-transform:uppercase;letter-spacing:.03em}
 .tb .big{font-family:var(--f-display);font-size:2rem;font-weight:700;line-height:1}
@@ -255,11 +256,6 @@ details.inner>summary{cursor:pointer}
   .minbtn{min-height:38px;padding:6px 14px}
   .btn.sm{min-height:38px}
 }
-.people{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
-.person{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--rule);padding:4px 10px 4px 4px;font-weight:600}
-.person img{width:26px;height:26px;border-radius:50%}
-.feed{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:.92rem;color:var(--ink-2)}
-.feed b{color:var(--ink)}
 .stat b.low{color:var(--red)}
 
 /* focus mode: one full sheet */
@@ -442,6 +438,16 @@ details.inner>summary{cursor:pointer}
       </div>
     </div>
     <div class="status" id="acMsg" style="margin-top:8px"></div>
+    <div class="acct-backup">
+      <h3>Backup</h3>
+      <div class="note">Signed in, your tasks sync across your devices on their own. A backup file is an extra copy, or a way to move tasks without an account.</div>
+      <div class="meta-row">
+        <button class="btn ghost sm" id="exportBtn">Export backup</button>
+        <button class="btn ghost sm" id="importBtn">Import backup</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+      <div class="status" id="backupStatus" style="margin-top:8px"></div>
+    </div>
   </section>
   </div>
 
@@ -458,8 +464,6 @@ details.inner>summary{cursor:pointer}
     <div class="stats">
       <div class="stat"><span class="lbl">Done this week</span><b class="mono" id="sWeek">0</b></div>
       <div class="stat"><span class="lbl">Focus this week</span><b class="mono" id="sWeekF">0m</b></div>
-      <div class="stat"><span class="lbl">Best day</span><b class="mono" id="sBest">0</b></div>
-      <div class="stat"><span class="lbl">Total done</span><b class="mono" id="sTotal">0</b></div>
     </div>
     <div class="cal" id="mcal"></div>
     <div class="legend">
@@ -474,7 +478,7 @@ details.inner>summary{cursor:pointer}
   </section>
 
   <section class="sheet sec" id="taskSec">
-    <div class="sec-head"><h2>Tasks</h2>
+    <div class="sec-head"><h2>All tasks</h2>
       <div class="monthnav"><span class="lbl" id="taskMeta"></span>
         <div class="seg" role="group" aria-label="Sort tasks">
           <button type="button" class="minbtn" data-sort="mine">My order</button><button type="button" class="minbtn" data-sort="deadline">Deadline</button><button type="button" class="minbtn" data-sort="importance">Importance</button>
@@ -528,20 +532,6 @@ details.inner>summary{cursor:pointer}
     <div class="note" style="margin-top:10px">When you leave a focus session, the app asks where you went when you come back. Tap the app and it's counted here.</div>
   </section>
 
-  <section class="sheet sec" id="group" hidden>
-    <div class="sec-head"><h2>Focus group</h2><div class="lbl">Live</div></div>
-    <div class="stats">
-      <div class="stat"><span class="lbl">Break time left</span><b class="mono" id="gLeft">30:00</b></div>
-      <div class="stat"><span class="lbl">Focusing now</span><b class="mono" id="gNow">0</b></div>
-      <div class="stat"><span class="lbl">Left focus</span><b class="mono" id="gAway">0</b></div>
-      <div class="stat"><span class="lbl">In group</span><b class="mono" id="gAll">1</b></div>
-    </div>
-    <div class="xpbar" style="margin:0 0 14px"><i id="bankBar" style="width:100%"></i></div>
-    <div class="people" id="people"></div>
-    <ul class="feed" id="feed"></ul>
-    <div class="note" id="gNote"></div>
-  </section>
-
   <section class="sheet sec" id="rwSec">
     <div class="sec-head"><h2>Rewards</h2>
       <div class="monthnav"><span class="lbl" id="badgeMeta">0 earned</span><button class="btn ghost sm" id="editRw" aria-pressed="false">Edit</button></div>
@@ -557,22 +547,6 @@ details.inner>summary{cursor:pointer}
     <div class="sec-head" style="margin:4px 0 10px"><h3>Badges</h3><div class="lbl">Each badge fills one platform</div></div>
     <div class="badges" id="badges"></div>
     <div class="meta-row edit-only"><button class="btn ghost sm" id="addBadge">+ Add your own badge</button></div>
-  </section>
-
-  <section class="sheet sec">
-    <div class="sec-head"><h2>Logbook</h2><div class="lbl">Newest first</div></div>
-    <div class="log" id="log"></div>
-  </section>
-
-  <section class="sheet sec">
-    <div class="sec-head"><h2>Backup</h2><div class="lbl">Saved on this device</div></div>
-    <div class="note">Your tasks are saved on this device only. To move them to your phone or laptop, export a backup here and import it on the other device.</div>
-    <div class="meta-row">
-      <button class="btn ghost sm" id="exportBtn">Export backup</button>
-      <button class="btn ghost sm" id="importBtn">Import backup</button>
-      <input type="file" id="importFile" accept="application/json,.json" hidden>
-    </div>
-    <div class="status" id="backupStatus" style="margin-top:8px"></div>
   </section>
 
   <section class="sheet sec" id="grpSec">
@@ -607,7 +581,6 @@ details.inner>summary{cursor:pointer}
       <div class="chips" id="whereApps"></div>
     </div>
     <div class="note" id="rule">Stay on this page. No YouTube.</div>
-    <div class="lbl" id="fGroup"></div>
     <div class="chips" id="mins"></div>
     <div class="ctrl">
       <button class="btn ghost" id="fBack">Back</button>
@@ -622,7 +595,6 @@ details.inner>summary{cursor:pointer}
 
 <script>
 const TC=["--t-geg","--t-ceg2","--t-bmd","--t-zh","--t-en"];
-const BANK=30*60;               // group break time per day, in seconds
 const $=id=>document.getElementById(id);
 const ICON={
   edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></svg>',
@@ -641,7 +613,6 @@ let stats={days:{},seq:0};
 $("date").textContent=new Date().toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long",year:"numeric"});
 
 /* ---------- my tasks + stats: private to me, with a local copy as backup ---------- */
-let ref=null, saving=Promise.resolve(), pending=false;
 const OLD={"--c1":"--t-zh","--c2":"--t-bmd","--c3":"--t-bmd","--c4":"--t-en","--c5":"--t-geg","--c6":"--t-ceg2",
   "--h1":"--t-geg","--h2":"--t-en","--h3":"--t-zh","--h4":"--t-bmd","--h5":"--t-ceg2","--h6":"--t-en"};
 function tidy(list){return (list||[]).map(t=>({id:t.id,text:t.text||t.label||t.icon||"Task",color:OLD[t.color]||t.color||"--t-geg",done:!!t.done,doneAt:t.doneAt||0,no:t.no||0,due:t.due||"",pri:t.pri||"",ord:t.ord??null}))}
@@ -722,9 +693,6 @@ function save(){
   saveLocal();renderStats();
   if(!applyingCloud){localUpdated=Date.now();try{localStorage.setItem("pebbles-updated",localUpdated)}catch(e){}cloudPush()}
   pushPresence();
-  if(!ref||pending)return;
-  pending=true;
-  saving=saving.then(()=>new Promise(r=>setTimeout(r,250))).then(()=>{pending=false;return ref.set({tasks,stats})}).catch(()=>{pending=false});
 }
 function day(k=dkey()){const d=stats.days[k]||(stats.days[k]={done:0,focusSec:0,items:[]});d.items=d.items||[];return d}
 function prune(){const cut=dkey(new Date(Date.now()-90*864e5));Object.keys(stats.days).forEach(k=>{if(k<cut)delete stats.days[k]})}
@@ -826,9 +794,6 @@ function renderStats(){
   const wk=[...Array(7)].map((_,i)=>{const d=new Date();d.setDate(d.getDate()-i);return stats.days[dkey(d)]}).filter(Boolean);
   $("sWeek").textContent=wk.reduce((a,d)=>a+d.done,0);
   $("sWeekF").textContent=fmtMin(wk.reduce((a,d)=>a+d.focusSec,0));
-  const all=Object.values(stats.days);
-  $("sBest").textContent=Math.max(0,...all.map(d=>d.done));
-  $("sTotal").textContent=all.reduce((a,d)=>a+d.done,0);
 
   // rewards
   const fresh=checkAuto();
@@ -842,22 +807,6 @@ function renderStats(){
     else setTimeout(()=>{stamp("Badge earned",fresh||"New platform filled","gold",2200);chime([659,880,1175])},900);
   }
   lastCount=count;
-
-  // logbook
-  const log=$("log");log.innerHTML="";
-  const keys=Object.keys(stats.days).filter(k=>some(stats.days[k])).sort().reverse().slice(0,14);
-  if(!keys.length){log.innerHTML='<div class="empty">Finished tasks and focus time will be logged here.</div>'}
-  keys.forEach((k,i)=>{
-    const d=stats.days[k],[y,m,dd]=k.split("-").map(Number),date=new Date(y,m-1,dd);
-    const det=document.createElement("details");det.className="entry";if(i===0)det.open=true;
-    det.innerHTML=`<summary><span class="qtag" style="color:${strong(d)?"var(--good)":"var(--ink-2)"}">${strong(d)?"STRONG":"LOGGED"}</span>
-      <span class="sum-title"><b>${date.toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})}</b> · ${fmtMin(d.focusSec)} focused</span>
-      <span class="sc mono" style="color:var(--good)">${d.done}</span></summary><div class="body"><div class="chips"></div></div>`;
-    const chips=det.querySelector(".chips");
-    (d.items||[]).forEach(it=>{const c=document.createElement("span");c.className="chip done";c.textContent=`${hhmm(it.at)} · ${it.text}`;chips.append(c)});
-    if(!(d.items||[]).length){const n=document.createElement("span");n.className="note";n.textContent="Focus time only.";chips.append(n)}
-    log.append(det);
-  });
 }
 
 /* ---------- the climber game: it bounces by itself, you steer left/right.
@@ -997,100 +946,19 @@ function stamp(word,sub,kind="",ms=1400){
 }
 const PRAISE=["Nice work.","Keep going.","Good momentum.","On a roll.","Brilliant.","Unstoppable."];
 
-/* ---------- focus group: everyone sees everyone's status ---------- */
-let user=null, me=null, myDoc=null, members={}, mine={state:"idle",awaySec:0,day:today(),lastAway:null,awaySince:0,focusEnd:0};
-let meWriting=Promise.resolve(), meQueued=false;
-const bootAt=Date.now();
+/* ---------- your focus status (focusing / left focus), shared with your groups ---------- */
+let mine={state:"idle",awaySec:0,day:today(),lastAway:null,awaySince:0,focusEnd:0};
 function writeMe(patch){
   Object.assign(mine,patch,{updated:Date.now()});
   pushPresence(true);   // your groups see focus / left focus straight away
-  if(!myDoc||meQueued)return;
-  meQueued=true;
-  meWriting=meWriting.then(()=>{meQueued=false;return myDoc.set({...mine})}).catch(()=>{meQueued=false});
 }
 function statusOf(m,now){
   if((m.state==="focus"||m.state==="away")&&m.focusEnd&&now<m.focusEnd)return m.state;
   return "idle";
 }
-function awayUsed(m,now){
-  if(m.day!==today())return 0;
-  let s=m.awaySec||0;
-  if(statusOf(m,now)==="away"&&m.awaySince)s+=(Math.min(now,m.focusEnd)-m.awaySince)/1000;
-  return s;
-}
-function bankLeft(){const now=Date.now();return Math.max(0,BANK-Object.values(members).reduce((a,m)=>a+awayUsed(m,now),0))}
-
-async function renderGroup(){
-  if(!myDoc)return;
-  $("group").hidden=false;
-  const now=Date.now(),left=bankLeft(),ids=Object.keys(members);
-  $("gLeft").textContent=left>0?mmss(left):"0:00";$("gLeft").classList.toggle("low",left<BANK*.2);
-  $("bankBar").style.width=(left/BANK*100)+"%";$("bankBar").style.background=left<BANK*.2?"var(--red)":"";
-  const sts=ids.map(id=>statusOf(members[id],now));
-  $("gNow").textContent=sts.filter(s=>s==="focus").length;$("gAway").textContent=sts.filter(s=>s==="away").length;$("gAll").textContent=ids.length;
-  $("fGroup").textContent=left>0?"Group break time left · "+mmss(left):"Group break time used up";
-  const ps=await user.profiles(ids);
-  const name=id=>id===me?"You":(ps[id]?.name||"Someone");
-  const order={away:0,focus:1,idle:2};
-  const people=$("people");people.innerHTML="";
-  ids.sort((a,b)=>order[statusOf(members[a],now)]-order[statusOf(members[b],now)]).forEach(id=>{
-    const st=statusOf(members[id],now);
-    const el=document.createElement("span");el.className="person";
-    const img=document.createElement("img");img.src=ps[id]?.avatarUrl||"";img.alt="";
-    const n=document.createElement("span");n.textContent=name(id);
-    const c=document.createElement("span");c.className="chip"+(st==="away"?" red":st==="focus"?" done":"");c.textContent=st==="away"?"left focus":st==="focus"?"focusing":"idle";
-    el.append(img,n,c);people.append(el);
-  });
-  const feed=$("feed");feed.innerHTML="";
-  ids.map(id=>({id,a:members[id].lastAway})).filter(x=>x.a&&new Date(x.a.at).toDateString()===today())
-    .sort((x,y)=>y.a.at-x.a.at).slice(0,4).forEach(({id,a})=>{
-      const li=document.createElement("li");li.className="mono";const b=document.createElement("b");b.textContent=name(id);
-      li.append(hhmm(a.at)+" · ",b,` left focus for ${nice(a.sec)}`);feed.append(li);
-    });
-  $("gNote").textContent=ids.length<2?"Invite friends with Share. Add them by email as Editor.":"Break time is shared. It drops when anyone leaves focus.";
-}
-setInterval(()=>{const now=Date.now();if(Object.values(members).some(m=>statusOf(m,now)!=="idle"))renderGroup()},1000);
 
 let toastT=0;
 function toast(msg,good){$("toast").textContent=msg;$("toast").classList.toggle("good",!!good);$("toast").hidden=false;clearTimeout(toastT);toastT=setTimeout(()=>$("toast").hidden=true,4500)}
-
-async function connect(){
-  if(!window.claude?.use)return;
-  const [db,u]=await Promise.all([claude.use("db"),claude.use("user")]);
-  if(!db||!u)return;
-  user=u;me=await u.id(); if(!me)return;
-  ref=db.doc("data/users/"+me+"/list");
-  let first=true;
-  ref.onSnapshot(s=>{
-    if(s.metadata.hasPendingWrites)return;
-    if(s.exists){const d=s.data();tasks=tidy(d.tasks);if(d.stats?.days){stats=JSON.parse(JSON.stringify(d.stats));fill();lastCount=null}
-      const had=tasks.some(t=>!t.no);number();saveLocal();render();if(had)save()}
-    else if(first&&tasks.length){save()}
-    first=false;
-  },()=>{ref=null});
-
-  myDoc=db.collection("group").doc(me);
-  let joined=false;
-  db.collection("group").onSnapshot(s=>{
-    const next={};
-    s.docs.forEach(d=>{next[d.id]=d.data()});
-    if(!joined){
-      joined=true;
-      if(next[me]){Object.assign(mine,next[me]);if(mine.day!==today())writeMe({day:today(),awaySec:0,state:"idle",focusEnd:0});}
-      else writeMe({});
-    }
-    const now=Date.now();
-    Object.entries(next).forEach(([id,m])=>{
-      if(id===me)return;
-      const was=members[id]?statusOf(members[id],now):"idle";
-      if(was!=="away"&&statusOf(m,now)==="away"&&m.updated>bootAt){
-        user.profiles([id]).then(ps=>{toast(`${ps[id]?.name||"Someone"} just left focus.`);chime([440,330]);});
-      }
-    });
-    members=next;if(!members[me])members[me]={...mine};
-    renderGroup();
-  },()=>{myDoc=null;$("group").hidden=true});
-}
 
 /* ---------- sound + voice ---------- */
 let ac=null;
@@ -1217,11 +1085,20 @@ function renderMonth(){
   h.querySelector("h3").textContent=fromKey(selDay).toLocaleDateString(undefined,{weekday:"long",day:"numeric",month:"long"});
   h.querySelector("button").onclick=()=>{$("newDue").value=selDay;$("newTask").focus();$("newTask").scrollIntoView({block:"center",behavior:"smooth"})};
   info.append(h);
+  const lbl=t=>{const e=document.createElement("div");e.className="lbl";e.style.marginTop="6px";e.textContent=t;info.append(e)};
+  lbl("Deadlines");
   const list=tasks.filter(t=>t.due===selDay);
   if(!list.length){const e=document.createElement("div");e.className="note";e.textContent="No deadlines on this day.";info.append(e)}
   list.forEach(t=>{const r=document.createElement("div");r.className="row";
     r.innerHTML=`<span class="qtag" style="color:var(${t.color})">${tag(t)}</span><span class="t"></span><span class="chip mono ${t.done?"done":dueInfo(t).cls}">${t.done?"Done":dueInfo(t).txt}</span>`;
     r.querySelector(".t").textContent=t.text;info.append(r)});
+  // what you finished that day (this used to be the Logbook)
+  const rec=stats.days[selDay];
+  lbl(rec&&some(rec)?`Finished · ${rec.done} done · ${fmtMin(rec.focusSec)} focused`:"Finished");
+  if(!rec||!some(rec)){const e=document.createElement("div");e.className="note";e.textContent=selDay>tk?"Nothing yet. This day hasn't happened.":"Nothing logged on this day.";info.append(e)}
+  else if(!(rec.items||[]).length){const e=document.createElement("div");e.className="note";e.textContent="Focus time only, no tasks ticked.";info.append(e)}
+  else{const chips=document.createElement("div");chips.className="chips";
+    [...rec.items].sort((a,b)=>a.at-b.at).forEach(it=>{const c=document.createElement("span");c.className="chip done";c.textContent=`${hhmm(it.at)} · ${it.text}`;chips.append(c)});info.append(chips)}
 }
 $("mPrev").onclick=()=>{monthView.setMonth(monthView.getMonth()-1);renderMonth()};
 $("mNext").onclick=()=>{monthView.setMonth(monthView.getMonth()+1);renderMonth()};
@@ -1333,7 +1210,7 @@ function drawTime(){
 function openFocus(t){
   flushAway();ft=t;stop();total=(t.est||stats.focusMin||25)*60;left=total;$("nudge").hidden=true;   // a Today item starts with its own estimate
   $("fText").textContent=t.text;$("fTag").textContent=t.mod?"Revision · counts toward this week's goal":t.daily?"Today"+(t.est?" · est "+fmtEst(t.est):""):tag(t);$("fTag").style.color=`var(${t.color})`;
-  $("rule").textContent=myDoc?"Stay on this page. If you leave, your group will see.":"Stay on this page. No YouTube.";
+  $("rule").textContent=gUser&&stats.groups.length?"Stay on this page. If you leave, your group will see.":"Stay on this page. No YouTube.";
   $("focus").hidden=false;drawTime();
 }
 function logFocus(){            // add the time actually spent focused in this run
@@ -1443,7 +1320,7 @@ function renderToday(){
     if(it.est){const c=document.createElement("span");c.className="est";c.textContent=(mod?"":"est ")+fmtEst(it.est);meta.append(c)}
     if(it.done&&it.doneAt){const c=document.createElement("span");c.className="chip done mono";c.textContent="Done "+hhmm(it.doneAt);meta.append(c)}
     if(it.carried&&!it.done){const c=document.createElement("span");c.className="carry";c.textContent="from yesterday";meta.append(c)}
-    if(it.taskId){const c=document.createElement("span");c.className="lbl";c.textContent="in Tasks";meta.append(c)}
+    if(it.taskId){const c=document.createElement("span");c.className="lbl";c.textContent="in All tasks";meta.append(c)}
     li.querySelector(".box").onclick=()=>tickToday(it);
     li.querySelector(".edit").onclick=()=>{editingToday=it.id;renderToday()};
     li.querySelector(".go").onclick=()=>openFocus(todayFocus(it));
@@ -1835,7 +1712,7 @@ function initAccount(){
 
 /* ---------- start ---------- */
 try{navigator.storage?.persist?.()}catch(e){}
-tasks=loadLocal();number();render();connect();initAccount();
+tasks=loadLocal();number();render();initAccount();
 if("serviceWorker" in navigator&&location.protocol!=="file:")navigator.serviceWorker.register("sw.js").catch(()=>{});
 </script>
 </body>
