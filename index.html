@@ -445,24 +445,6 @@ details.inner>summary{cursor:pointer}
   </section>
   </div>
 
-  <section class="sheet sec" id="grpSec">
-    <div class="sec-head"><h2>Groups</h2><div class="lbl">Focus together</div></div>
-    <div class="note" id="grpOff">Sign in to create or join a group with friends. <button class="btn ghost sm" type="button" id="grpSignIn">Sign in</button></div>
-    <div id="grpOn" hidden>
-      <div class="grp-setup">
-        <label class="duefield"><span class="lbl">Your name in groups</span><input id="gName" maxlength="24" placeholder="e.g. Korbi" aria-label="Your name in groups"></label>
-        <label class="gchk"><input type="checkbox" id="gShareTask"> Show my task names</label>
-        <label class="gchk"><input type="checkbox" id="gShareDis"> Share my distractions</label>
-      </div>
-      <div class="grp-forms">
-        <form class="addrow" id="gCreate" autocomplete="off"><input id="gNewName" maxlength="40" placeholder="New group name, e.g. CEG study crew" aria-label="New group name"><button class="btn" type="submit">Create group</button></form>
-        <form class="addrow" id="gJoin" autocomplete="off"><input id="gCode" maxlength="6" placeholder="Invite code, e.g. K7P2QX" aria-label="Invite code" style="text-transform:uppercase"><button class="btn ghost" type="submit">Join group</button></form>
-      </div>
-      <div class="status" id="gMsg"></div>
-      <div class="groups" id="groups"></div>
-    </div>
-  </section>
-
   <section class="sheet sec">
     <div class="sec-head"><h2>Calendar</h2>
       <div class="monthnav"><button class="btn ghost sm" id="mPrev" aria-label="Previous month">‹</button><span class="lbl" id="mName"></span><button class="btn ghost sm" id="mNext" aria-label="Next month">›</button><button class="btn ghost sm" id="mToday">Today</button></div>
@@ -591,6 +573,24 @@ details.inner>summary{cursor:pointer}
       <input type="file" id="importFile" accept="application/json,.json" hidden>
     </div>
     <div class="status" id="backupStatus" style="margin-top:8px"></div>
+  </section>
+
+  <section class="sheet sec" id="grpSec">
+    <div class="sec-head"><h2>Groups</h2><div class="lbl">Focus together</div></div>
+    <div class="note" id="grpOff">Sign in to create or join a group with friends. <button class="btn ghost sm" type="button" id="grpSignIn">Sign in</button></div>
+    <div id="grpOn" hidden>
+      <div class="grp-setup">
+        <label class="duefield"><span class="lbl">Your name in groups</span><input id="gName" maxlength="24" placeholder="e.g. Korbi" aria-label="Your name in groups"></label>
+        <label class="gchk"><input type="checkbox" id="gShareTask"> Show my task names</label>
+        <label class="gchk"><input type="checkbox" id="gShareDis"> Share my distractions</label>
+      </div>
+      <div class="grp-forms">
+        <form class="addrow" id="gCreate" autocomplete="off"><input id="gNewName" maxlength="40" placeholder="New group name, e.g. CEG study crew" aria-label="New group name"><button class="btn" type="submit">Create group</button></form>
+        <form class="addrow" id="gJoin" autocomplete="off"><input id="gCode" maxlength="6" placeholder="Invite code, e.g. K7P2QX" aria-label="Invite code" style="text-transform:uppercase"><button class="btn ghost" type="submit">Join group</button></form>
+      </div>
+      <div class="status" id="gMsg"></div>
+      <div class="groups" id="groups"></div>
+    </div>
   </section>
 </div>
 
